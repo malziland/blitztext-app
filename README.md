@@ -8,6 +8,8 @@ This is a learning and experimentation project, not a polished product.
 
 > Preview status: bring your own OpenAI API key, no hosted backend, no warranty, no support guarantee.
 
+For changes in this fork, see [CHANGELOG.md](CHANGELOG.md).
+
 ## What It Does
 
 - **Blitztext**: record speech and transcribe it.
