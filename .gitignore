@@ -26,6 +26,7 @@ models/
 .env
 .env.*
 *.local
+.local/
 Secrets.swift
 *.xcconfig
 

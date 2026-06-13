@@ -1,17 +1,18 @@
 # Contributing
 
-Thanks for taking a look at Blitztext macOS Preview.
+This repository is a personal/local fork, not the official upstream project.
 
-This repository is intentionally a preview. Contributions should make it easier to learn from, build, fork, or safely extend.
+General changes that should benefit all users are usually better proposed to the upstream project first:
 
-## Good First Contributions
+https://github.com/cmagnussen/blitztext-app
 
-- improve build instructions
-- fix confusing UI text
-- improve error messages
-- add tests around parsing or quality filters
-- document local model experiments
-- simplify setup
+Changes in this fork should stay focused on:
+
+- local macOS build reliability
+- local setup and permission handling
+- microphone and hotkey usability
+- clear privacy and data-flow documentation
+- small fixes needed for this fork's documented behavior
 
 ## Before Opening A Pull Request
 
@@ -20,9 +21,10 @@ Please include:
 - what changed
 - why it changed
 - how you tested it
+- whether the change is fork-specific or suitable for upstream
 - whether you used AI-assisted coding tools
 
-Keep changes small when possible. Avoid unrelated cleanup in the same PR.
+Keep changes small when possible. Avoid unrelated cleanup in the same pull request.
 
 ## Local Build
 
@@ -33,18 +35,17 @@ Keep changes small when possible. Avoid unrelated cleanup in the same PR.
 ## Security And Privacy
 
 - Never commit API keys, tokens, private audio, or confidential transcripts.
-- Avoid adding telemetry, hosted services, or external dependencies without a clear issue first.
+- Do not add telemetry, hosted services, or new external services without a clear reason.
 - Call out privacy-impacting changes in the pull request description.
 - Keep the preview honest: do not describe remote OpenAI workflows as offline or local.
 
 ## Project Boundaries
 
-This preview currently does not include:
+This fork currently does not provide:
 
-- other platforms
-- a hosted backend
-- packaged releases
+- production support
+- hosted infrastructure
+- packaged public releases
 - bundled local model files
 - local text rewriting
-
-Those can be discussed in issues, but please keep PRs focused on the current macOS preview unless a maintainer agrees on a larger direction first.
+- a separate public product roadmap

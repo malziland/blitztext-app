@@ -1,18 +1,23 @@
 # Support
 
-Blitztext App is an experimental preview. There is no service-level agreement, paid support channel, or guarantee that issues will be fixed.
+This repository is a personal/local fork of Blitztext. It is provided as-is, without a support guarantee, service-level agreement, or promise that issues will be fixed.
 
-## Before Asking For Help
+## Before Troubleshooting
 
 - Make sure you can build the app with `./build.sh --debug`.
 - Check that your OpenAI API key is entered in the app settings.
 - Confirm that macOS microphone permission is granted.
 - Grant Accessibility permission if you expect automatic paste into other apps.
+- Check the selected microphone in the app settings if recordings are silent.
 - Read [docs/privacy.md](docs/privacy.md) before testing with sensitive content.
 
 ## Where To Ask
 
-Use GitHub Issues for reproducible bugs and focused feature ideas.
+For fork-specific issues, use this repository only if the problem relates to the local changes documented in [CHANGELOG.md](CHANGELOG.md).
+
+For issues that also reproduce in the original project, consider reporting them upstream instead:
+
+https://github.com/cmagnussen/blitztext-app
 
 Please do not post:
 

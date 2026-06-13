@@ -1,10 +1,12 @@
 ---
-name: Bug report
-about: Report something broken in the macOS preview
+name: Fork-specific bug report
+about: Report something broken in this local fork
 title: ""
 labels: bug
 assignees: ""
 ---
+
+This fork is not the official upstream project. Please use this template only for issues related to the local fork changes. If the problem also happens in the upstream project, consider reporting it upstream instead.
 
 ## What happened?
 
@@ -23,7 +25,10 @@ assignees: ""
 - macOS version:
 - Mac model/chip:
 - Xcode version:
+- Fork commit:
 - Did this happen before or after entering an OpenAI API key?:
+- Selected microphone:
+- Secure local mode enabled?:
 
 ## Notes
 

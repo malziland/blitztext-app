@@ -1,33 +1,28 @@
 # GitHub Settings Checklist
 
-These settings are not stored in the repository. Configure them in GitHub before going public.
+These settings are not stored in the repository. They are optional hygiene for running this fork on GitHub.
 
-## Security
+## Recommended For This Fork
 
 - Enable Dependabot alerts.
 - Enable secret scanning.
 - Enable push protection for supported secret types.
+- Keep GitHub Actions permissions read-only by default.
+- Do not add repository secrets unless they are truly needed.
+
+## If The Repository Becomes Public
+
+- Make the fork relationship clear in the repository description.
+- Keep Issues enabled only if you want to receive fork-specific bug reports.
+- Direct general upstream issues to `cmagnussen/blitztext-app`.
 - Enable private vulnerability reporting when available.
+- Add topics only if they accurately describe the fork, such as `macos`, `swift`, `speech-to-text`, and `openai`.
 
-## Branch Protection
+## Optional Branch Protection
 
-Protect `main`:
+For a personal fork, strict branch protection is optional. If more people contribute, protect `main`:
 
 - require pull request before merge
 - require at least one approval
-- require the CI workflow to pass
 - dismiss stale approvals when new commits are pushed
 - block force pushes
-
-## Actions
-
-- Keep default workflow permissions read-only.
-- Require approval for workflows from first-time contributors.
-- Do not add repository secrets unless they are truly needed.
-
-## Community
-
-- Keep Issues enabled for bugs and focused requests.
-- Enable Discussions only if you want a lower-friction place for questions.
-- Set repository topics after the project is public.
-- Review the GitHub community profile before sharing the repo widely.

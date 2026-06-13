@@ -27,3 +27,15 @@ This fork tracks local macOS usability fixes for running Blitztext without a hos
 - Fixed unreliable microphone selection when an external microphone should be used.
 - Reduced false transcriptions such as "Untertitel der Amara-Community" after unusable recordings.
 - Ignored locally built `.app` bundles so they are not accidentally committed.
+
+### Documentation
+
+- Clarified that this repository is a personal/local fork of the upstream Blitztext app.
+- Added fork notes describing retained files, local changes, intentionally excluded data, and upstream relationship.
+- Updated setup, privacy, support, security, contribution, and GitHub hygiene notes for a fork context.
+- Documented that there is currently no automatic OpenAI-to-local transcription fallback.
+- Documented that generated text remains on the clipboard if auto-paste has no valid text target.
+
+### Removed
+
+- Removed upstream-facing roadmap, launch-page, and public preflight documents that did not describe this fork.

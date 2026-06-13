@@ -1,20 +1,16 @@
 # Security Policy
 
-Blitztext macOS Preview is experimental software.
-
-It is provided as-is, without warranty, support guarantees, or production-readiness claims.
+This repository is a personal/local fork of experimental software. It is provided as-is, without warranty, support guarantees, or production-readiness claims.
 
 ## Supported Versions
 
-Only the current `main` branch is considered for security fixes.
+Only the current `main` branch of this fork is considered for fork-specific security fixes.
 
 ## Reporting A Vulnerability
 
 Please do not open a public issue with sensitive security details.
 
-Use GitHub private vulnerability reporting for this repository. Maintainers should enable it before making the repository public.
-
-If private vulnerability reporting is not available yet, open a minimal public issue titled `Security contact request` without technical details.
+If GitHub private vulnerability reporting is available for this repository, use it. Otherwise, open a minimal public issue titled `Security contact request` without technical details.
 
 Do not include OpenAI API keys, access tokens, private recordings, or confidential transcripts in a report.
 
@@ -24,13 +20,14 @@ Include:
 - how to reproduce it
 - what data or system access could be affected
 - your suggested fix, if you have one
+- whether the issue also appears in the upstream project
 
 ## Security Notes
 
-- The app sends audio and text directly to OpenAI when you use the remote workflows.
+- The app sends audio and text directly to OpenAI when you use remote workflows.
 - Your OpenAI API key is stored in the user's macOS Keychain.
 - Temporary audio files may exist briefly during processing.
 - Accessibility permission allows the app to paste text into the current app.
-- The app currently runs **without** the macOS App Sandbox. This is a deliberate trade-off for the preview: the menubar workflow needs Accessibility-based paste into arbitrary frontmost apps, system-wide hotkeys, and Application Support paths for local WhisperKit models, all of which are awkward or impossible inside a strict sandbox. Hardened Runtime is enabled, and the entitlements are limited to microphone input and outbound network access. Reintroducing the sandbox is on the roadmap once these flows are reworked.
+- The app currently runs without the macOS App Sandbox. Hardened Runtime is enabled, and entitlements are limited to microphone input and outbound network access.
 
 Do not use this preview for confidential or regulated data without your own review.

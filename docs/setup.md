@@ -1,6 +1,10 @@
 # Setup
 
-This guide is for people who want to build and inspect the preview themselves.
+This guide is for people who want to build and inspect this local fork themselves.
+
+The original upstream project is available at:
+
+https://github.com/cmagnussen/blitztext-app
 
 ## 1. Requirements
 
@@ -20,7 +24,7 @@ brew install xcodegen
 ## 2. Clone And Build
 
 ```bash
-git clone https://github.com/cmagnussen/blitztext-app.git
+git clone https://github.com/malziland/blitztext-app.git
 cd blitztext-app
 ./build.sh --debug
 ```
@@ -29,6 +33,12 @@ To launch after building:
 
 ```bash
 ./build.sh --run
+```
+
+For a local install into `/Applications`:
+
+```bash
+./build.sh --install --run
 ```
 
 ## 3. Configure OpenAI For Online Workflows
@@ -49,7 +59,7 @@ You can skip this step if you only want to test local transcription with a local
 
 ## 4. Optional Local Transcription
 
-To use secure local transcription, choose a compatible WhisperKit CoreML model in the app and click **Installieren**. Blitztext stores models in:
+To use secure local transcription, choose a compatible WhisperKit/CoreML model in the app and click **Installieren**. Blitztext stores models in:
 
 ```text
 ~/Library/Application Support/Blitztext/models/whisperkit/
@@ -57,13 +67,13 @@ To use secure local transcription, choose a compatible WhisperKit CoreML model i
 
 Recommended first model: `openai_whisper-small_216MB`.
 
-See [local-models.md](local-models.md) for the exact command, model links, and expected folder layout.
+See [local-models.md](local-models.md) for model links and expected folder layout.
 
 ## 5. macOS Permissions
 
 The app needs Microphone permission to record audio.
 
-For automatic paste into the previous app, grant Accessibility permission in macOS System Settings. Without it, you can still copy and paste manually.
+For automatic paste into the previous app, grant Accessibility permission in macOS System Settings. Without it, the generated text stays on the clipboard so you can paste manually.
 
 Blitztext does not need Full Disk Access. Auto-paste uses the Accessibility permission because the app simulates Cmd+V after putting the result on the clipboard.
 
@@ -76,5 +86,5 @@ Blitztext does not need Full Disk Access. Auto-paste uses the Accessibility perm
 - If transcription works but paste does not, this is not an OpenAI billing issue. Check **Privacy & Security -> Accessibility**, restart Blitztext after changing the permission, and make sure the cursor is focused in a text field before starting the workflow.
 - If macOS shows multiple Blitztext entries under Accessibility, remove or disable stale entries, run the app from the final location (`/Applications` if you used `./build.sh --install`), then grant the permission again.
 - If the target app blocks synthetic paste or the target app was not detected, the result still stays on the clipboard so you can press Cmd+V manually.
-- If audio is missing, check Microphone permission and macOS input settings.
+- If audio is missing, check Microphone permission, the selected microphone in Blitztext settings, and macOS input settings.
 - If you see OpenAI errors, verify model access and account billing.
