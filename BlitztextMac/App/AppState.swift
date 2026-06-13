@@ -25,6 +25,7 @@ final class AppState {
         }
     }
     var accessibilityPermissionGranted = false
+    var lastWorkflowErrorMessage: String?
     var localModelDownloadProgress: Double?
     var localModelDownloadStatusText: String?
     var localModelDownloadErrorText: String?
@@ -155,6 +156,7 @@ final class AppState {
             return
         }
 
+        lastWorkflowErrorMessage = nil
         activeWorkflow?.stop()
         menuBarStatusResetTask?.cancel()
         workflowCleanupTask?.cancel()
@@ -167,7 +169,8 @@ final class AppState {
                 customTerms: textImprovementSettings.customTerms,
                 language: transcriptionSettings.language,
                 backend: appSettings.secureLocalModeEnabled ? .local : .remote,
-                localModelName: selectedLocalModelName
+                localModelName: selectedLocalModelName,
+                audioInputDeviceID: appSettings.selectedAudioInputDeviceID
             )
             configureWorkflowHandlers(workflow)
             activeWorkflow = workflow
@@ -179,7 +182,8 @@ final class AppState {
                 customTerms: textImprovementSettings.customTerms,
                 language: transcriptionSettings.language,
                 backend: .local,
-                localModelName: selectedLocalModelName
+                localModelName: selectedLocalModelName,
+                audioInputDeviceID: appSettings.selectedAudioInputDeviceID
             )
             configureWorkflowHandlers(workflow)
             activeWorkflow = workflow
@@ -188,7 +192,8 @@ final class AppState {
         case .textImprover:
             let workflow = TextImprovementWorkflow(
                 settings: textImprovementSettings,
-                language: transcriptionSettings.language
+                language: transcriptionSettings.language,
+                audioInputDeviceID: appSettings.selectedAudioInputDeviceID
             )
             configureWorkflowHandlers(workflow)
             activeWorkflow = workflow
@@ -198,7 +203,8 @@ final class AppState {
             let workflow = DampfAblassenWorkflow(
                 settings: dampfAblassenSettings,
                 customTerms: textImprovementSettings.customTerms,
-                language: transcriptionSettings.language
+                language: transcriptionSettings.language,
+                audioInputDeviceID: appSettings.selectedAudioInputDeviceID
             )
             configureWorkflowHandlers(workflow)
             activeWorkflow = workflow
@@ -208,7 +214,8 @@ final class AppState {
             let workflow = EmojiTextWorkflow(
                 settings: emojiTextSettings,
                 customTerms: textImprovementSettings.customTerms,
-                language: transcriptionSettings.language
+                language: transcriptionSettings.language,
+                audioInputDeviceID: appSettings.selectedAudioInputDeviceID
             )
             configureWorkflowHandlers(workflow)
             activeWorkflow = workflow
@@ -411,6 +418,10 @@ final class AppState {
         accessibilityPermissionGranted = AccessibilityPermissionService.currentStatus()
     }
 
+    func promptForAccessibilityPermissionIfNeeded() {
+        accessibilityPermissionGranted = AccessibilityPermissionService.isTrusted(promptIfNeeded: true)
+    }
+
     func requestAccessibilityPermission() {
         accessibilityPermissionGranted = AccessibilityPermissionService.requestPermissionPrompt()
         AccessibilityPermissionService.openSystemSettings()
@@ -480,9 +491,11 @@ final class AppState {
                 : .processing(workflow.type)
 
         case .done:
+            lastWorkflowErrorMessage = nil
             menuBarStatus = .success(workflow.type)
 
-        case .error:
+        case .error(let message):
+            lastWorkflowErrorMessage = message
             menuBarStatus = .error(workflow.type)
             if activeLaunchSource == .hotkeyBackground {
                 activeWorkflow = nil

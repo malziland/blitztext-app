@@ -47,7 +47,7 @@ enum WorkflowType: String, CaseIterable, Identifiable, Codable {
 
     var hotkeyLabel: String {
         switch self {
-        case .transcription: return "fn + Shift"
+        case .transcription: return "fn"
         case .localTranscription: return "fn + Shift + Ctrl"
         case .textImprover: return "fn + Control"
         case .dampfAblassen: return "fn + Option"
@@ -117,24 +117,27 @@ protocol Workflow: AnyObject, Observable {
 // MARK: - App Settings
 
 struct AppSettings: Codable {
-    var hotkeyMode: HotkeyMode = .hold
+    var hotkeyMode: HotkeyMode = .toggle
     var hasSeenOnboarding: Bool = false
     var secureLocalModeEnabled: Bool = false
     var selectedLocalTranscriptionModelName: String = LocalTranscriptionService.recommendedFastModelName
     var hasAutoSelectedFastLocalModel: Bool = false
+    var selectedAudioInputDeviceID: String = AudioInputDeviceService.systemDefaultDeviceID
 
     init(
-        hotkeyMode: HotkeyMode = .hold,
+        hotkeyMode: HotkeyMode = .toggle,
         hasSeenOnboarding: Bool = false,
         secureLocalModeEnabled: Bool = false,
         selectedLocalTranscriptionModelName: String = LocalTranscriptionService.recommendedFastModelName,
-        hasAutoSelectedFastLocalModel: Bool = false
+        hasAutoSelectedFastLocalModel: Bool = false,
+        selectedAudioInputDeviceID: String = AudioInputDeviceService.systemDefaultDeviceID
     ) {
         self.hotkeyMode = hotkeyMode
         self.hasSeenOnboarding = hasSeenOnboarding
         self.secureLocalModeEnabled = secureLocalModeEnabled
         self.selectedLocalTranscriptionModelName = selectedLocalTranscriptionModelName
         self.hasAutoSelectedFastLocalModel = hasAutoSelectedFastLocalModel
+        self.selectedAudioInputDeviceID = selectedAudioInputDeviceID
     }
 
     enum CodingKeys: String, CodingKey {
@@ -143,11 +146,12 @@ struct AppSettings: Codable {
         case secureLocalModeEnabled
         case selectedLocalTranscriptionModelName
         case hasAutoSelectedFastLocalModel
+        case selectedAudioInputDeviceID
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        hotkeyMode = try container.decodeIfPresent(HotkeyMode.self, forKey: .hotkeyMode) ?? .hold
+        hotkeyMode = try container.decodeIfPresent(HotkeyMode.self, forKey: .hotkeyMode) ?? .toggle
         hasSeenOnboarding = try container.decodeIfPresent(Bool.self, forKey: .hasSeenOnboarding) ?? false
         secureLocalModeEnabled = try container.decodeIfPresent(Bool.self, forKey: .secureLocalModeEnabled) ?? false
         selectedLocalTranscriptionModelName = try container.decodeIfPresent(
@@ -158,6 +162,10 @@ struct AppSettings: Codable {
             Bool.self,
             forKey: .hasAutoSelectedFastLocalModel
         ) ?? false
+        selectedAudioInputDeviceID = try container.decodeIfPresent(
+            String.self,
+            forKey: .selectedAudioInputDeviceID
+        ) ?? AudioInputDeviceService.systemDefaultDeviceID
     }
 }
 

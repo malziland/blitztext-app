@@ -2,61 +2,151 @@ import AVFoundation
 import Observation
 
 @Observable
-final class AudioRecorder: NSObject, AVAudioRecorderDelegate {
+@MainActor
+final class AudioRecorder: NSObject, AVCaptureFileOutputRecordingDelegate {
     var isRecording = false
     var recordingURL: URL?
     var errorMessage: String?
     var audioLevel: Float = 0
+    var maximumAudioLevel: Float = 0
     var lastRecordingDuration: TimeInterval = 0
+    var inputDeviceName: String?
 
-    private var audioRecorder: AVAudioRecorder?
+    private var captureSession: AVCaptureSession?
+    private var audioOutput: AVCaptureAudioFileOutput?
     private var levelTimer: Timer?
     private var currentFileURL: URL?
+    private var recordingStartDate: Date?
+    private var stopContinuation: CheckedContinuation<Void, Never>?
+    private var discardCurrentRecording = false
 
-    private func makeRecordingURL() -> URL {
+    private func makeRecordingURL(fileExtension: String) -> URL {
         FileManager.default.temporaryDirectory
-            .appendingPathComponent("blitztext-\(UUID().uuidString).m4a")
+            .appendingPathComponent("blitztext-\(UUID().uuidString).\(fileExtension)")
     }
 
-    func startRecording() {
+    func startRecording(audioInputDeviceID: String?) {
         errorMessage = nil
         lastRecordingDuration = 0
+        maximumAudioLevel = 0
         recordingURL = nil
+        inputDeviceName = nil
+        discardCurrentRecording = false
         if let currentFileURL {
             try? FileManager.default.removeItem(at: currentFileURL)
         }
+        currentFileURL = nil
 
-        let settings: [String: Any] = [
-            AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
-            AVSampleRateKey: 16000,
-            AVNumberOfChannelsKey: 1,
-            AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue,
-        ]
+        guard AVCaptureDevice.authorizationStatus(for: .audio) != .denied else {
+            errorMessage = "Mikrofon-Zugriff ist fuer Blitztext nicht freigegeben."
+            return
+        }
+
+        guard let device = AudioInputDeviceService.device(for: audioInputDeviceID) else {
+            errorMessage = "Kein Mikrofon gefunden. Pruefe Systemeinstellungen > Ton > Eingabe."
+            return
+        }
+
+        inputDeviceName = device.localizedName
+        let outputFileType = Self.preferredOutputFileType()
+        let fileURL = makeRecordingURL(fileExtension: Self.fileExtension(for: outputFileType))
 
         do {
-            let fileURL = makeRecordingURL()
+            let session = AVCaptureSession()
+            let input = try AVCaptureDeviceInput(device: device)
+            let output = AVCaptureAudioFileOutput()
+            output.audioSettings = Self.audioSettings(for: outputFileType)
+
+            session.beginConfiguration()
+            if session.canSetSessionPreset(.high) {
+                session.sessionPreset = .high
+            }
+
+            guard session.canAddInput(input) else {
+                session.commitConfiguration()
+                errorMessage = "Mikrofon \"\(device.localizedName)\" kann nicht verwendet werden."
+                return
+            }
+
+            guard session.canAddOutput(output) else {
+                session.commitConfiguration()
+                errorMessage = "Audio-Ausgabe konnte fuer \"\(device.localizedName)\" nicht erstellt werden."
+                return
+            }
+
+            session.addInput(input)
+            session.addOutput(output)
+            session.commitConfiguration()
+
             currentFileURL = fileURL
-            audioRecorder = try AVAudioRecorder(url: fileURL, settings: settings)
-            audioRecorder?.delegate = self
-            audioRecorder?.isMeteringEnabled = true
-            audioRecorder?.record()
+            captureSession = session
+            audioOutput = output
+
+            session.startRunning()
+            guard session.isRunning else {
+                cleanupCaptureSession()
+                currentFileURL = nil
+                try? FileManager.default.removeItem(at: fileURL)
+                errorMessage = "Aufnahme konnte nicht gestartet werden. Pruefe Mikrofon \"\(device.localizedName)\"."
+                return
+            }
+
+            output.startRecording(to: fileURL, outputFileType: outputFileType, recordingDelegate: self)
+            recordingStartDate = Date()
             isRecording = true
             startMetering()
         } catch {
             currentFileURL = nil
+            cleanupCaptureSession()
             errorMessage = "Aufnahme konnte nicht gestartet werden: \(error.localizedDescription)"
         }
     }
 
-    func stopRecording() {
+    func stopRecording() async {
         stopMetering()
-        lastRecordingDuration = audioRecorder?.currentTime ?? 0
-        audioRecorder?.stop()
         isRecording = false
-        recordingURL = currentFileURL
+        lastRecordingDuration = currentRecordingDuration()
+
+        guard let output = audioOutput else {
+            recordingURL = currentFileURL
+            currentFileURL = nil
+            cleanupCaptureSession()
+            audioLevel = 0
+            return
+        }
+
+        if output.isRecording {
+            await withCheckedContinuation { continuation in
+                stopContinuation = continuation
+                output.stopRecording()
+                scheduleStopFallback()
+            }
+        } else {
+            recordingURL = currentFileURL
+        }
+
         currentFileURL = nil
-        audioRecorder = nil
+        cleanupCaptureSession()
         audioLevel = 0
+    }
+
+    func cancelRecording() {
+        stopMetering()
+        discardCurrentRecording = true
+        isRecording = false
+        lastRecordingDuration = currentRecordingDuration()
+
+        if audioOutput?.isRecording == true {
+            audioOutput?.stopRecording()
+        } else if let currentFileURL {
+            try? FileManager.default.removeItem(at: currentFileURL)
+            self.currentFileURL = nil
+        }
+
+        cleanupCaptureSession()
+        audioLevel = 0
+        stopContinuation?.resume()
+        stopContinuation = nil
     }
 
     func discardRecording() {
@@ -73,11 +163,9 @@ final class AudioRecorder: NSObject, AVAudioRecorderDelegate {
 
     private func startMetering() {
         levelTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
-            guard let self else { return }
-            self.audioRecorder?.updateMeters()
-            let power = self.audioRecorder?.averagePower(forChannel: 0) ?? -160
-            let normalized = max(0, min(1, (power + 50) / 50))
-            self.audioLevel = normalized
+            Task { @MainActor in
+                self?.updateMetering()
+            }
         }
     }
 
@@ -86,13 +174,113 @@ final class AudioRecorder: NSObject, AVAudioRecorderDelegate {
         levelTimer = nil
     }
 
-    // MARK: - AVAudioRecorderDelegate
+    private func updateMetering() {
+        let channels = audioOutput?.connections.flatMap(\.audioChannels) ?? []
+        let power = channels.map(\.peakHoldLevel).max() ?? -160
+        let normalized = max(0, min(1, (power + 50) / 50))
+        audioLevel = normalized
+        maximumAudioLevel = max(maximumAudioLevel, normalized)
+        lastRecordingDuration = currentRecordingDuration()
+    }
 
-    nonisolated func audioRecorderDidFinishRecording(_ recorder: AVAudioRecorder, successfully flag: Bool) {
-        if !flag {
-            Task { @MainActor in
-                self.errorMessage = "Aufnahme fehlgeschlagen"
+    private func currentRecordingDuration() -> TimeInterval {
+        if let output = audioOutput {
+            let seconds = CMTimeGetSeconds(output.recordedDuration)
+            if seconds.isFinite, seconds > 0 {
+                return seconds
             }
+        }
+
+        if let recordingStartDate {
+            return Date().timeIntervalSince(recordingStartDate)
+        }
+
+        return 0
+    }
+
+    private func cleanupCaptureSession() {
+        captureSession?.stopRunning()
+        captureSession = nil
+        audioOutput = nil
+        recordingStartDate = nil
+    }
+
+    private func scheduleStopFallback() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
+            Task { @MainActor in
+                guard let self, self.stopContinuation != nil else { return }
+                self.recordingURL = self.currentFileURL
+                self.stopContinuation?.resume()
+                self.stopContinuation = nil
+            }
+        }
+    }
+
+    private static func preferredOutputFileType() -> AVFileType {
+        let availableTypes = AVCaptureAudioFileOutput.availableOutputFileTypes()
+        if availableTypes.contains(.m4a) {
+            return .m4a
+        }
+        if availableTypes.contains(.wav) {
+            return .wav
+        }
+        return availableTypes.first ?? .m4a
+    }
+
+    private static func fileExtension(for fileType: AVFileType) -> String {
+        switch fileType {
+        case .wav:
+            return "wav"
+        case .mp3:
+            return "mp3"
+        default:
+            return "m4a"
+        }
+    }
+
+    private static func audioSettings(for fileType: AVFileType) -> [String: Any] {
+        if fileType == .wav {
+            return [
+                AVFormatIDKey: Int(kAudioFormatLinearPCM),
+                AVSampleRateKey: 16000,
+                AVNumberOfChannelsKey: 1,
+                AVLinearPCMBitDepthKey: 16,
+                AVLinearPCMIsFloatKey: false,
+                AVLinearPCMIsBigEndianKey: false,
+            ]
+        }
+
+        return [
+            AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
+            AVSampleRateKey: 16000,
+            AVNumberOfChannelsKey: 1,
+            AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue,
+        ]
+    }
+
+    // MARK: - AVCaptureFileOutputRecordingDelegate
+
+    nonisolated func fileOutput(
+        _ output: AVCaptureFileOutput,
+        didFinishRecordingTo outputFileURL: URL,
+        from connections: [AVCaptureConnection],
+        error: Error?
+    ) {
+        Task { @MainActor in
+            if self.discardCurrentRecording {
+                try? FileManager.default.removeItem(at: outputFileURL)
+                self.recordingURL = nil
+                self.discardCurrentRecording = false
+            } else if let error {
+                try? FileManager.default.removeItem(at: outputFileURL)
+                self.recordingURL = nil
+                self.errorMessage = "Aufnahme fehlgeschlagen: \(error.localizedDescription)"
+            } else {
+                self.recordingURL = outputFileURL
+            }
+
+            self.stopContinuation?.resume()
+            self.stopContinuation = nil
         }
     }
 }

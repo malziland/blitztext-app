@@ -89,7 +89,7 @@ struct AccessSettingsView: View {
                         .frame(width: 18, height: 18)
 
                     VStack(alignment: .leading, spacing: 3) {
-                        Text(appState.accessibilityPermissionGranted ? "Direktes Einfügen ist freigegeben." : "Direktes Einfügen ist noch nicht freigegeben.")
+                        Text(appState.accessibilityPermissionGranted ? "Hotkeys und direktes Einfügen sind freigegeben." : "Hotkeys und direktes Einfügen sind noch nicht freigegeben.")
                             .font(.system(size: 11.5, weight: .semibold))
                             .foregroundStyle(.primary)
 
@@ -522,6 +522,10 @@ struct CustomizeSettingsView: View {
         LocalTranscriptionService.modelOptions()
     }
 
+    private var audioInputDevices: [AudioInputDevice] {
+        AudioInputDeviceService.availableDevices()
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
 
@@ -590,6 +594,38 @@ struct CustomizeSettingsView: View {
                         .font(.system(size: 10.5))
                         .foregroundStyle(.red)
                         .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            // MARK: Mikrofon
+            VStack(alignment: .leading, spacing: 10) {
+                SectionLabel(text: "Mikrofon")
+
+                HStack(spacing: 8) {
+                    Text("Eingabe")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+
+                    Picker("", selection: $appState.appSettings.selectedAudioInputDeviceID) {
+                        Text("Systemstandard · \(AudioInputDeviceService.displayName(for: nil))")
+                            .tag(AudioInputDeviceService.systemDefaultDeviceID)
+
+                        ForEach(audioInputDevices) { device in
+                            Text(device.displayName).tag(device.id)
+                        }
+                    }
+                    .labelsHidden()
+                    .controlSize(.small)
+                }
+
+                HStack(spacing: 6) {
+                    Image(systemName: audioInputDevices.isEmpty ? "exclamationmark.triangle.fill" : "mic.fill")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(audioInputDevices.isEmpty ? .orange : .secondary)
+                    Text(audioInputDevices.isEmpty ? "Kein Mikrofon gefunden." : "Aktiv: \(AudioInputDeviceService.displayName(for: appState.appSettings.selectedAudioInputDeviceID))")
+                        .font(.system(size: 10.5))
+                        .foregroundStyle(.secondary)
+                    Spacer()
                 }
             }
 

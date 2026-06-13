@@ -31,10 +31,20 @@ enum HotkeyEvent {
 @Observable
 @MainActor
 final class HotkeyService {
+    private static let functionOnlyDelayNanoseconds: UInt64 = 90_000_000
+    private static let relevantModifierMask: NSEvent.ModifierFlags = [
+        .function,
+        .shift,
+        .control,
+        .option,
+        .command
+    ]
+
     private var globalMonitor: Any?
     private var localMonitor: Any?
     private var keyMonitor: Any?
     private var activeCombo: WorkflowType?  // Which combo is currently held
+    private var pendingFunctionOnlyTask: Task<Void, Never>?
 
     var onHotkeyEvent: ((HotkeyEvent) -> Void)?
 
@@ -64,16 +74,36 @@ final class HotkeyService {
         if let globalMonitor { NSEvent.removeMonitor(globalMonitor) }
         if let localMonitor { NSEvent.removeMonitor(localMonitor) }
         if let keyMonitor { NSEvent.removeMonitor(keyMonitor) }
+        pendingFunctionOnlyTask?.cancel()
         globalMonitor = nil
         localMonitor = nil
         keyMonitor = nil
+        pendingFunctionOnlyTask = nil
     }
 
     private func handleFlags(_ event: NSEvent) {
-        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        let flags = event.modifierFlags.intersection(Self.relevantModifierMask)
+
+        if flags == [.function] {
+            scheduleFunctionOnlyTranscription()
+            return
+        }
+
+        if let pendingFunctionOnlyTask {
+            pendingFunctionOnlyTask.cancel()
+            self.pendingFunctionOnlyTask = nil
+
+            if flags.isEmpty {
+                activeCombo = .transcription
+                onHotkeyEvent?(.down(.transcription))
+                activeCombo = nil
+                onHotkeyEvent?(.up(.transcription))
+                return
+            }
+        }
 
         // fn + Shift + Control -> local transcription
-        if flags == [.function, .shift, .control] {
+        if flags.contains([.function, .shift, .control]) {
             if activeCombo == nil {
                 activeCombo = .localTranscription
                 onHotkeyEvent?(.down(.localTranscription))
@@ -82,7 +112,7 @@ final class HotkeyService {
         }
 
         // fn + Shift -> transcription
-        if flags == [.function, .shift] {
+        if flags.contains([.function, .shift]) {
             if activeCombo == nil {
                 activeCombo = .transcription
                 onHotkeyEvent?(.down(.transcription))
@@ -91,7 +121,7 @@ final class HotkeyService {
         }
 
         // fn + Control -> Textverbesserer
-        if flags == [.function, .control] {
+        if flags.contains([.function, .control]) {
             if activeCombo == nil {
                 activeCombo = .textImprover
                 onHotkeyEvent?(.down(.textImprover))
@@ -100,7 +130,7 @@ final class HotkeyService {
         }
 
         // fn + Option -> Rage Mode
-        if flags == [.function, .option] {
+        if flags.contains([.function, .option]) {
             if activeCombo == nil {
                 activeCombo = .dampfAblassen
                 onHotkeyEvent?(.down(.dampfAblassen))
@@ -109,7 +139,7 @@ final class HotkeyService {
         }
 
         // fn + Command -> Emoji Mode
-        if flags == [.function, .command] {
+        if flags.contains([.function, .command]) {
             if activeCombo == nil {
                 activeCombo = .emojiText
                 onHotkeyEvent?(.down(.emojiText))
@@ -124,7 +154,25 @@ final class HotkeyService {
         }
     }
 
+    private func scheduleFunctionOnlyTranscription() {
+        guard activeCombo == nil, pendingFunctionOnlyTask == nil else { return }
+
+        pendingFunctionOnlyTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: Self.functionOnlyDelayNanoseconds)
+            guard !Task.isCancelled else { return }
+
+            await MainActor.run {
+                guard let self, self.activeCombo == nil else { return }
+                self.pendingFunctionOnlyTask = nil
+                self.activeCombo = .transcription
+                self.onHotkeyEvent?(.down(.transcription))
+            }
+        }
+    }
+
     private func handleEscape() {
+        pendingFunctionOnlyTask?.cancel()
+        pendingFunctionOnlyTask = nil
         activeCombo = nil
         onHotkeyEvent?(.cancel)
     }

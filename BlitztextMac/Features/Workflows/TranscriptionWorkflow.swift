@@ -24,6 +24,7 @@ final class TranscriptionWorkflow: Workflow {
     private let language: String
     private let backend: TranscriptionBackend
     private let localModelName: String
+    private let audioInputDeviceID: String
     private var transcriptionTask: Task<Void, Never>?
 
     init(
@@ -31,18 +32,20 @@ final class TranscriptionWorkflow: Workflow {
         customTerms: [String] = [],
         language: String = "de",
         backend: TranscriptionBackend = .remote,
-        localModelName: String = LocalTranscriptionService.recommendedFastModelName
+        localModelName: String = LocalTranscriptionService.recommendedFastModelName,
+        audioInputDeviceID: String = AudioInputDeviceService.systemDefaultDeviceID
     ) {
         self.type = type
         self.customTerms = customTerms
         self.language = language
         self.backend = backend
         self.localModelName = localModelName
+        self.audioInputDeviceID = audioInputDeviceID
     }
 
     func start() {
         phase = .running("Aufnahme läuft ...")
-        recorder.startRecording()
+        recorder.startRecording(audioInputDeviceID: audioInputDeviceID)
 
         if let error = recorder.errorMessage {
             phase = .error(error)
@@ -51,13 +54,10 @@ final class TranscriptionWorkflow: Workflow {
 
     func stop() {
         if recorder.isRecording {
-            recorder.stopRecording()
-            guard !TranscriptionQualityService.shouldRejectRecording(duration: recorder.lastRecordingDuration) else {
-                recorder.discardRecording()
-                phase = .error("Keine Aufnahme erkannt.")
-                return
+            phase = .running("Aufnahme wird verarbeitet ...")
+            Task { [weak self] in
+                await self?.finishRecording()
             }
-            transcribe()
         } else {
             transcriptionTask?.cancel()
             phase = .idle
@@ -67,7 +67,7 @@ final class TranscriptionWorkflow: Workflow {
     func reset() {
         transcriptionTask?.cancel()
         if recorder.isRecording {
-            recorder.stopRecording()
+            recorder.cancelRecording()
         }
         recorder.discardRecording()
         phase = .idle
@@ -75,6 +75,23 @@ final class TranscriptionWorkflow: Workflow {
 
     var isRecording: Bool { recorder.isRecording }
     var audioLevel: Float { recorder.audioLevel }
+
+    private func finishRecording() async {
+        await recorder.stopRecording()
+
+        if let error = recorder.errorMessage {
+            phase = .error(error)
+            return
+        }
+
+        if let message = TranscriptionQualityService.shortRecordingMessage(duration: recorder.lastRecordingDuration) {
+            recorder.discardRecording()
+            phase = .error(message)
+            return
+        }
+
+        transcribe()
+    }
 
     private func transcribe() {
         guard let url = recorder.recordingURL else {
@@ -84,6 +101,8 @@ final class TranscriptionWorkflow: Workflow {
 
         phase = .running(backend == .local ? "Wird lokal transkribiert ..." : "Wird transkribiert ...")
         let recordingDuration = recorder.lastRecordingDuration
+        let maximumAudioLevel = recorder.maximumAudioLevel
+        let inputDeviceName = recorder.inputDeviceName
         let vocabularyHints = recordingDuration >= 0.9 ? customTerms : []
         let requestLanguage = language
         let stopTime = Date()
@@ -118,7 +137,13 @@ final class TranscriptionWorkflow: Workflow {
                     transcriptionLogger.info(
                         "Transcription rejected short artifact after \(elapsedMilliseconds(since: stopTime)) ms"
                     )
-                    phase = .error("Keine Aufnahme erkannt.")
+                    phase = .error(
+                        TranscriptionQualityService.noSpeechMessage(
+                            duration: recordingDuration,
+                            maximumAudioLevel: maximumAudioLevel,
+                            inputDeviceName: inputDeviceName
+                        )
+                    )
                     return
                 }
 

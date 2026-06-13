@@ -98,6 +98,12 @@ struct MenuBarView: View {
                     .padding(.bottom, 6)
             }
 
+            if let lastError = appState.lastWorkflowErrorMessage {
+                lastErrorBanner(lastError)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 6)
+            }
+
             // Workflow list
             VStack(spacing: 0) {
                 ForEach(WorkflowType.mainMenuCases) { type in
@@ -234,7 +240,7 @@ struct MenuBarView: View {
                 .frame(width: 18, height: 18)
 
             VStack(alignment: .leading, spacing: 3) {
-                Text("Einfügen braucht Bedienungshilfen.")
+                Text("Hotkeys und Einfügen brauchen Bedienungshilfen.")
                     .font(.system(size: 11.5, weight: .semibold))
                     .foregroundStyle(.primary)
 
@@ -250,6 +256,48 @@ struct MenuBarView: View {
                 appState.requestAccessibilityPermission()
             }
             .font(.system(size: 10.5, weight: .medium))
+            .buttonStyle(SubtleButtonStyle())
+        }
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color.orange.opacity(0.08))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .strokeBorder(Color.orange.opacity(0.12), lineWidth: 0.5)
+        )
+    }
+
+    private func lastErrorBanner(_ message: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.orange)
+                .frame(width: 18, height: 18)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Letzter Fehler")
+                    .font(.system(size: 11.5, weight: .semibold))
+                    .foregroundStyle(.primary)
+
+                Text(message)
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(nil)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 0)
+
+            Button {
+                appState.lastWorkflowErrorMessage = nil
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.tertiary)
+                    .frame(width: 20, height: 20)
+            }
             .buttonStyle(SubtleButtonStyle())
         }
         .padding(10)

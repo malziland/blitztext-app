@@ -83,6 +83,33 @@ ensure_xcodebuild_available() {
     exit 1
 }
 
+clean_code_signing_attributes() {
+    local target_path="$1"
+
+    if [ ! -e "$target_path" ]; then
+        return
+    fi
+
+    # macOS file-provider/provenance metadata can break ad-hoc signing with:
+    # "resource fork, Finder information, or similar detritus not allowed".
+    xattr -cr "$target_path" 2>/dev/null || true
+    find "$target_path" -exec xattr -d com.apple.FinderInfo {} + 2>/dev/null || true
+    find "$target_path" -exec xattr -d com.apple.ResourceFork {} + 2>/dev/null || true
+    find "$target_path" -exec xattr -d "com.apple.fileprovider.fpfs#P" {} + 2>/dev/null || true
+}
+
+sign_local_app() {
+    local app_path="$1"
+
+    clean_code_signing_attributes "$app_path"
+    codesign \
+        --force \
+        --sign - \
+        --options runtime \
+        --entitlements "$PROJECT_DIR/Resources/BlitztextMac.entitlements" \
+        "$app_path" 2>&1
+}
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$SCRIPT_DIR/BlitztextMac"
 PROJECT_FILE="$PROJECT_DIR/BlitztextMac.xcodeproj"
@@ -114,6 +141,8 @@ xcodebuild \
     -derivedDataPath "$DERIVED_DATA_PATH" \
     ONLY_ACTIVE_ARCH=NO \
     ARCHS="$UNIVERSAL_ARCHS" \
+    CODE_SIGNING_ALLOWED=NO \
+    CODE_SIGNING_REQUIRED=NO \
     clean build
 
 # App finden
@@ -133,13 +162,14 @@ mkdir -p "$RESOURCES_DIR"
 cp -f "$PROJECT_DIR/Resources/AppIcon.icns" "$RESOURCES_DIR/" 2>/dev/null || true
 cp -f "$PROJECT_DIR/Resources/menubar_icon.png" "$RESOURCES_DIR/" 2>/dev/null || true
 cp -f "$PROJECT_DIR/Resources/menubar_icon@2x.png" "$RESOURCES_DIR/" 2>/dev/null || true
+clean_code_signing_attributes "$APP_PATH"
 
 # In Projektordner kopieren
 DEST="$SCRIPT_DIR/Blitztext.app"
 rm -rf "$DEST"
 cp -R "$APP_PATH" "$DEST"
 echo "🔏 Signiere lokale Development-App ad-hoc. Dieses Artefakt ist nicht notarisiert."
-codesign --force --sign - "$DEST" 2>&1
+sign_local_app "$DEST"
 verify_universal_app "$DEST"
 
 RUN_TARGET="$DEST"
@@ -155,7 +185,7 @@ if [ "$INSTALL_APP" = true ]; then
     rm -rf "$INSTALL_DEST"
     cp -R "$DEST" "$INSTALL_DEST"
     echo "🔏 Signiere lokale Development-App ad-hoc. Dieses Artefakt ist nicht notarisiert."
-    codesign --force --sign - "$INSTALL_DEST" 2>&1
+    sign_local_app "$INSTALL_DEST"
     verify_universal_app "$INSTALL_DEST"
     RUN_TARGET="$INSTALL_DEST"
 fi

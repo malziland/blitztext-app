@@ -15,11 +15,17 @@ final class TextImprovementWorkflow: Workflow {
     private let recorder = AudioRecorder()
     private let settings: TextImprovementSettings
     private let language: String
+    private let audioInputDeviceID: String
     private var processingTask: Task<Void, Never>?
 
-    init(settings: TextImprovementSettings, language: String = "de") {
+    init(
+        settings: TextImprovementSettings,
+        language: String = "de",
+        audioInputDeviceID: String = AudioInputDeviceService.systemDefaultDeviceID
+    ) {
         self.settings = settings
         self.language = language
+        self.audioInputDeviceID = audioInputDeviceID
     }
 
     // MARK: - Recording State
@@ -31,7 +37,7 @@ final class TextImprovementWorkflow: Workflow {
 
     func start() {
         phase = .running("Aufnahme läuft ...")
-        recorder.startRecording()
+        recorder.startRecording(audioInputDeviceID: audioInputDeviceID)
 
         if let error = recorder.errorMessage {
             phase = .error(error)
@@ -40,13 +46,10 @@ final class TextImprovementWorkflow: Workflow {
 
     func stop() {
         if recorder.isRecording {
-            recorder.stopRecording()
-            guard !TranscriptionQualityService.shouldRejectRecording(duration: recorder.lastRecordingDuration) else {
-                recorder.discardRecording()
-                phase = .error("Keine Aufnahme erkannt.")
-                return
+            phase = .running("Aufnahme wird verarbeitet ...")
+            Task { [weak self] in
+                await self?.finishRecording()
             }
-            processRecording()
         } else {
             processingTask?.cancel()
             phase = .idle
@@ -56,13 +59,30 @@ final class TextImprovementWorkflow: Workflow {
     func reset() {
         processingTask?.cancel()
         if recorder.isRecording {
-            recorder.stopRecording()
+            recorder.cancelRecording()
         }
         recorder.discardRecording()
         phase = .idle
     }
 
     // MARK: - Two-Phase Processing: Whisper -> GPT
+
+    private func finishRecording() async {
+        await recorder.stopRecording()
+
+        if let error = recorder.errorMessage {
+            phase = .error(error)
+            return
+        }
+
+        if let message = TranscriptionQualityService.shortRecordingMessage(duration: recorder.lastRecordingDuration) {
+            recorder.discardRecording()
+            phase = .error(message)
+            return
+        }
+
+        processRecording()
+    }
 
     private func processRecording() {
         guard let url = recorder.recordingURL else {
@@ -72,6 +92,8 @@ final class TextImprovementWorkflow: Workflow {
 
         phase = .running("Wird transkribiert ...")
         let recordingDuration = recorder.lastRecordingDuration
+        let maximumAudioLevel = recorder.maximumAudioLevel
+        let inputDeviceName = recorder.inputDeviceName
         let vocabularyHints = recordingDuration >= 0.9 ? settings.customTerms : []
 
         processingTask = Task {
@@ -88,7 +110,13 @@ final class TextImprovementWorkflow: Workflow {
                 )
                 let cleanedRawText = TranscriptionQualityService.cleanedTranscript(rawText)
                 guard !TranscriptionQualityService.isLikelyArtifact(cleanedRawText, recordingDuration: recordingDuration) else {
-                    phase = .error("Keine Aufnahme erkannt.")
+                    phase = .error(
+                        TranscriptionQualityService.noSpeechMessage(
+                            duration: recordingDuration,
+                            maximumAudioLevel: maximumAudioLevel,
+                            inputDeviceName: inputDeviceName
+                        )
+                    )
                     return
                 }
 

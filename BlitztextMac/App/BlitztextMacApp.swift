@@ -29,7 +29,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
         popover = NSPopover()
         popover.contentSize = NSSize(width: 340, height: 480)
-        popover.behavior = .transient
+        popover.behavior = .applicationDefined
         popover.delegate = self
         popover.contentViewController = NSHostingController(rootView: MenuBarView(appState: appState))
 
@@ -43,6 +43,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             self?.menuBarStatusController.update(to: status)
         }
         appState.hotkeyService.start()
+        appState.promptForAccessibilityPermissionIfNeeded()
 
         // Listen for popover dismiss requests (from auto-paste)
         NotificationCenter.default.addObserver(
@@ -74,7 +75,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     }
 
     private func handleHotkeyDown(_ type: WorkflowType) {
-        guard appState.isConfigured else { return }
+        guard appState.isConfigured else {
+            appState.prepareForPopoverPresentation()
+            showPopover()
+            return
+        }
 
         let mode = appState.appSettings.hotkeyMode
 

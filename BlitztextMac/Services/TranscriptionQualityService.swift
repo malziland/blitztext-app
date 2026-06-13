@@ -1,10 +1,19 @@
 import Foundation
 
 enum TranscriptionQualityService {
-    static let minimumRecordingDuration: TimeInterval = 0.3
+    static let minimumRecordingDuration: TimeInterval = 0.8
 
-    static func shouldRejectRecording(duration: TimeInterval) -> Bool {
-        duration < minimumRecordingDuration
+    static func shortRecordingMessage(duration: TimeInterval) -> String? {
+        if duration < minimumRecordingDuration {
+            return "Aufnahme zu kurz (\(formattedDuration(duration)) s). Bitte etwas laenger sprechen."
+        }
+
+        return nil
+    }
+
+    static func noSpeechMessage(duration: TimeInterval, maximumAudioLevel: Float, inputDeviceName: String?) -> String {
+        let deviceText = inputDeviceName.map { " ueber \"\($0)\"" } ?? ""
+        return "Keine verwertbare Sprache erkannt\(deviceText). Dauer \(formattedDuration(duration)) s, Pegel \(formattedLevel(maximumAudioLevel))."
     }
 
     static func cleanedTranscript(_ text: String) -> String {
@@ -17,8 +26,21 @@ enum TranscriptionQualityService {
 
         let words = cleaned.split { $0.isWhitespace || $0.isNewline }
         let letters = cleaned.unicodeScalars.filter { CharacterSet.letters.contains($0) }.count
+        let normalized = cleaned
+            .lowercased()
+            .replacingOccurrences(of: " ", with: "")
+            .replacingOccurrences(of: "-", with: "")
+            .replacingOccurrences(of: ".", with: "")
 
         if letters == 0 {
+            return true
+        }
+
+        if normalized.contains("untertitelderamaracommunity")
+            || normalized.contains("untertitelvonamaracommunity")
+            || normalized.contains("untertitelderamaraorgcommunity")
+            || normalized.contains("subtitlesbyamara")
+            || normalized.contains("amaraorgcommunity") {
             return true
         }
 
@@ -31,5 +53,13 @@ enum TranscriptionQualityService {
         }
 
         return false
+    }
+
+    private static func formattedDuration(_ duration: TimeInterval) -> String {
+        String(format: "%.1f", duration)
+    }
+
+    private static func formattedLevel(_ level: Float) -> String {
+        String(format: "%.2f", level)
     }
 }

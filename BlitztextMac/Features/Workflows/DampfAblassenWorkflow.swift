@@ -16,12 +16,19 @@ final class DampfAblassenWorkflow: Workflow {
     private let settings: DampfAblassenSettings
     private let customTerms: [String]
     private let language: String
+    private let audioInputDeviceID: String
     private var processingTask: Task<Void, Never>?
 
-    init(settings: DampfAblassenSettings, customTerms: [String] = [], language: String = "de") {
+    init(
+        settings: DampfAblassenSettings,
+        customTerms: [String] = [],
+        language: String = "de",
+        audioInputDeviceID: String = AudioInputDeviceService.systemDefaultDeviceID
+    ) {
         self.settings = settings
         self.customTerms = customTerms
         self.language = language
+        self.audioInputDeviceID = audioInputDeviceID
     }
 
     // MARK: - Recording State
@@ -33,7 +40,7 @@ final class DampfAblassenWorkflow: Workflow {
 
     func start() {
         phase = .running("Aufnahme läuft ...")
-        recorder.startRecording()
+        recorder.startRecording(audioInputDeviceID: audioInputDeviceID)
 
         if let error = recorder.errorMessage {
             phase = .error(error)
@@ -42,13 +49,10 @@ final class DampfAblassenWorkflow: Workflow {
 
     func stop() {
         if recorder.isRecording {
-            recorder.stopRecording()
-            guard !TranscriptionQualityService.shouldRejectRecording(duration: recorder.lastRecordingDuration) else {
-                recorder.discardRecording()
-                phase = .error("Keine Aufnahme erkannt.")
-                return
+            phase = .running("Aufnahme wird verarbeitet ...")
+            Task { [weak self] in
+                await self?.finishRecording()
             }
-            processRecording()
         } else {
             processingTask?.cancel()
             phase = .idle
@@ -58,13 +62,30 @@ final class DampfAblassenWorkflow: Workflow {
     func reset() {
         processingTask?.cancel()
         if recorder.isRecording {
-            recorder.stopRecording()
+            recorder.cancelRecording()
         }
         recorder.discardRecording()
         phase = .idle
     }
 
     // MARK: - Two-Phase Processing: Whisper -> GPT Rage Mode
+
+    private func finishRecording() async {
+        await recorder.stopRecording()
+
+        if let error = recorder.errorMessage {
+            phase = .error(error)
+            return
+        }
+
+        if let message = TranscriptionQualityService.shortRecordingMessage(duration: recorder.lastRecordingDuration) {
+            recorder.discardRecording()
+            phase = .error(message)
+            return
+        }
+
+        processRecording()
+    }
 
     private func processRecording() {
         guard let url = recorder.recordingURL else {
@@ -74,6 +95,8 @@ final class DampfAblassenWorkflow: Workflow {
 
         phase = .running("Wird transkribiert ...")
         let recordingDuration = recorder.lastRecordingDuration
+        let maximumAudioLevel = recorder.maximumAudioLevel
+        let inputDeviceName = recorder.inputDeviceName
         let vocabularyHints = recordingDuration >= 0.9 ? customTerms : []
 
         processingTask = Task {
@@ -90,7 +113,13 @@ final class DampfAblassenWorkflow: Workflow {
                 )
                 let cleanedRawText = TranscriptionQualityService.cleanedTranscript(rawText)
                 guard !TranscriptionQualityService.isLikelyArtifact(cleanedRawText, recordingDuration: recordingDuration) else {
-                    phase = .error("Keine Aufnahme erkannt.")
+                    phase = .error(
+                        TranscriptionQualityService.noSpeechMessage(
+                            duration: recordingDuration,
+                            maximumAudioLevel: maximumAudioLevel,
+                            inputDeviceName: inputDeviceName
+                        )
+                    )
                     return
                 }
 
@@ -105,7 +134,13 @@ final class DampfAblassenWorkflow: Workflow {
                 )
                 let cleanedAnswer = TranscriptionQualityService.cleanedTranscript(answer)
                 guard cleanedAnswer != "KEINE_AUFNAHME_ERKANNT" else {
-                    phase = .error("Keine Aufnahme erkannt.")
+                    phase = .error(
+                        TranscriptionQualityService.noSpeechMessage(
+                            duration: recordingDuration,
+                            maximumAudioLevel: maximumAudioLevel,
+                            inputDeviceName: inputDeviceName
+                        )
+                    )
                     return
                 }
                 phase = .done(cleanedAnswer)
