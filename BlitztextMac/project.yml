@@ -17,7 +17,9 @@ settings:
 packages:
   ArgmaxOSS:
     url: https://github.com/argmaxinc/argmax-oss-swift.git
-    exactVersion: 0.18.0
+    # Pinned to the immutable commit of tag v0.18.0 for supply-chain integrity:
+    # a moved or re-pushed tag cannot silently change what is pulled. Bump deliberately.
+    revision: e2adabbe7d98dc4d0ab9a5b75424ecc42a9cdbef
 
 targets:
   BlitztextMac:

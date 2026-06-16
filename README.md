@@ -58,7 +58,8 @@ These screenshots are illustrative and may lag behind the newest fork-specific s
 - [XcodeGen](https://github.com/yonaskolb/XcodeGen) to generate the Xcode project
 - For online transcription and rewriting: an OpenAI API key with access to:
   - `whisper-1` for transcription
-  - `gpt-4o-mini` and optionally `gpt-4o` for rewriting
+  - `gpt-4o-mini` for the "Blitztext+" and "Blitztext :)" rewriting workflows
+  - `gpt-4o` for the "Blitztext $%&!" calmer-message workflow
 - For local-only transcription: a WhisperKit/CoreML model in:
   `~/Library/Application Support/Blitztext/models/whisperkit/`
 

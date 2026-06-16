@@ -19,6 +19,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     let appState = AppState()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Sweep recordings orphaned by a previous hard-killed run before doing anything else.
+        AudioRecorder.cleanupOrphanedRecordings()
+
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
 
         if let button = statusItem.button {

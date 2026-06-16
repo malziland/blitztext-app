@@ -4,6 +4,22 @@ All notable changes to this fork are documented here.
 
 This fork tracks local macOS usability fixes for running Blitztext without a hosted backend. The original upstream project remains the source of the baseline app.
 
+## 2026-06-16 — Audit remediation
+
+Read-only security/reliability audit of the repository; all eight P3 findings fixed (no higher-severity issues were found).
+
+### Fixed
+
+- Recording stop fallback (`AudioRecorder.scheduleStopFallback`): when the capture delegate does not finalize the file within the timeout, the app now surfaces a "please try again" error and discards the unfinalized file instead of transcribing a possibly partial recording.
+- Orphaned temporary recordings: added `AudioRecorder.cleanupOrphanedRecordings()`, called at launch, to sweep `blitztext-*` files left in the temporary directory by a previous run that was hard-killed before its per-workflow cleanup ran (defense in depth for the `defer`-based deletion that already covers normal and error paths).
+- README listed `gpt-4o` as "optionally … for rewriting", but the "Blitztext $%&!" workflow always requires it. README now states which model each workflow uses, matching `docs/setup.md`.
+
+### Changed
+
+- CI secret-hygiene scan now also scans the **full Git history** (not just the working tree) and gained a targeted pattern for a hardcoded Apple signing identity with a real Team ID (the `signing.local.sh.example` placeholder does not match). `actions/checkout` is now pinned to a commit SHA (`df4cb1c`, v6.0.3) instead of a mutable tag, with `fetch-depth: 0` for the history scan.
+- The `argmax-oss-swift` (WhisperKit) dependency is now pinned to the immutable commit of tag `v0.18.0` (`revision:` in `project.yml`) instead of a movable version tag, so a re-pushed tag cannot silently change what is pulled.
+- Scrubbed the personal signing identifiers that an earlier commit had introduced into `build.sh`/`docs/signing.md` from the **entire Git history** (history rewrite + force-push), not just from `HEAD`.
+
 ## 2026-06-16
 
 ### Added

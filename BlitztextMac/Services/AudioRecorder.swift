@@ -20,9 +20,28 @@ final class AudioRecorder: NSObject, AVCaptureFileOutputRecordingDelegate {
     private var stopContinuation: CheckedContinuation<Void, Never>?
     private var discardCurrentRecording = false
 
+    /// Filename prefix for every temporary recording, so orphans can be swept on launch.
+    static let temporaryRecordingPrefix = "blitztext-"
+
     private func makeRecordingURL(fileExtension: String) -> URL {
         FileManager.default.temporaryDirectory
-            .appendingPathComponent("blitztext-\(UUID().uuidString).\(fileExtension)")
+            .appendingPathComponent("\(Self.temporaryRecordingPrefix)\(UUID().uuidString).\(fileExtension)")
+    }
+
+    /// Removes recordings left in the shared temporary directory by a previous run
+    /// that was hard-killed before its per-workflow cleanup ran (defense in depth for
+    /// the `defer`-based deletion). Best effort and safe to call at launch.
+    nonisolated static func cleanupOrphanedRecordings() {
+        let directory = FileManager.default.temporaryDirectory
+        guard let entries = try? FileManager.default.contentsOfDirectory(
+            at: directory,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        ) else { return }
+
+        for url in entries where url.lastPathComponent.hasPrefix(temporaryRecordingPrefix) {
+            try? FileManager.default.removeItem(at: url)
+        }
     }
 
     func startRecording(audioInputDeviceID: String?) {
@@ -209,7 +228,17 @@ final class AudioRecorder: NSObject, AVCaptureFileOutputRecordingDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
             Task { @MainActor in
                 guard let self, self.stopContinuation != nil else { return }
-                self.recordingURL = self.currentFileURL
+                // The recording delegate did not finalize the file within the
+                // timeout. The capture output may still be writing, so the file is
+                // not safe to transcribe. Surface an error and discard the partial
+                // file instead of handing it off; a late delegate callback then
+                // takes the discard branch and removes it as well.
+                self.discardCurrentRecording = true
+                if let url = self.currentFileURL {
+                    try? FileManager.default.removeItem(at: url)
+                }
+                self.recordingURL = nil
+                self.errorMessage = "Aufnahme konnte nicht rechtzeitig abgeschlossen werden. Bitte erneut versuchen."
                 self.stopContinuation?.resume()
                 self.stopContinuation = nil
             }

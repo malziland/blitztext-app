@@ -17,9 +17,11 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: 0
 
-      - name: Secret hygiene scan
+      - name: Secret hygiene scan (working tree + history)
         run: |
           patterns_file=.github/secret-scan-patterns.txt
           if [ ! -f "$patterns_file" ]; then
@@ -31,11 +33,21 @@ jobs:
             echo "No patterns loaded from $patterns_file"
             exit 1
           fi
+
+          # 1) Working tree
           if grep -RInE \
               --exclude-dir=.git \
               --exclude=secret-scan-patterns.txt \
               "$pattern" .; then
-            echo "Potential secret or private project reference found."
+            echo "Potential secret or hardcoded signing identity found in the working tree."
+            exit 1
+          fi
+
+          # 2) Full Git history: catches values removed in HEAD but still present in
+          #    older commits. Requires fetch-depth: 0 on checkout.
+          if git log -p --all -- . ':(exclude).github/secret-scan-patterns.txt' \
+              | grep -anE "$pattern"; then
+            echo "Potential secret or hardcoded signing identity found in Git history."
             exit 1
           fi
 
