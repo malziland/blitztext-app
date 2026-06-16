@@ -52,4 +52,5 @@ Everything here is platform-agnostic and unit-tested without launching the app
   window) → verified by running the app, not by unit tests, as is standard for
   this kind of code.
 
-CI runs both test suites with coverage on every change.
+CI runs both test suites on every change: the core package via `swift test`, and
+the app target via `xcodebuild test` (with coverage on the app target).

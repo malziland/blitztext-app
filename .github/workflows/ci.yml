@@ -60,10 +60,14 @@ jobs:
             brew install xcodegen
           fi
 
+      - name: Run core package tests (BlitztextCore)
+        run: swift test
+        working-directory: BlitztextCore
+
       - name: Build
         run: ./build.sh --debug
 
-      - name: Run unit tests (with coverage)
+      - name: Run app tests (with coverage)
         run: |
           xcodebuild test \
             -project BlitztextMac/BlitztextMac.xcodeproj \
