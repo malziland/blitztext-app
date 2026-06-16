@@ -20,7 +20,7 @@ final class LLMServiceNetworkTests: XCTestCase {
         let data = Data(#"{"error":{"message":"nope"}}"#.utf8)
         do {
             _ = try await LLMService.complete(
-                text: "x", systemPrompt: "s", model: .rageMode, temperature: 0.4,
+                text: "x", systemPrompt: "s", model: .fastEdit, temperature: 0.4,
                 apiKey: "test-key",
                 transport: { _ in (data, self.http(400)) }
             )

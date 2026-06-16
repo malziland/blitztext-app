@@ -3,17 +3,17 @@ import BlitztextCore
 
 final class WorkflowTypeTests: XCTestCase {
     func testAllCasesCount() {
-        XCTAssertEqual(WorkflowType.allCases.count, 5)
+        XCTAssertEqual(WorkflowType.allCases.count, 3)
     }
 
     func testMainMenuExcludesLocalTranscription() {
         XCTAssertFalse(WorkflowType.mainMenuCases.contains(.localTranscription))
-        XCTAssertEqual(WorkflowType.mainMenuCases.count, 4)
+        XCTAssertEqual(WorkflowType.mainMenuCases.count, 2)
     }
 
     func testDisplayNames() {
-        XCTAssertEqual(WorkflowType.dampfAblassen.displayName, "Blitztext $%&!")
         XCTAssertEqual(WorkflowType.transcription.displayName, "Blitztext")
+        XCTAssertEqual(WorkflowType.textImprover.displayName, "Blitztext+")
     }
 
     func testCodableRoundTrip() throws {
@@ -31,8 +31,4 @@ final class WorkflowTypeTests: XCTestCase {
         XCTAssertTrue(WorkflowPhase.error("x").isActive)
     }
 
-    func testLaunchSourcePresentsPage() {
-        XCTAssertTrue(WorkflowLaunchSource.manual.presentsWorkflowPage)
-        XCTAssertFalse(WorkflowLaunchSource.hotkeyBackground.presentsWorkflowPage)
-    }
 }

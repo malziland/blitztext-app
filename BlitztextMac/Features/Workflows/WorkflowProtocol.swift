@@ -1,7 +1,7 @@
 import Foundation
 import BlitztextCore
 
-// WorkflowType, WorkflowPhase, WorkflowLaunchSource, HotkeyMode, TranscriptionBackend,
+// WorkflowType, WorkflowPhase, HotkeyMode, TranscriptionBackend,
 // the per-workflow Settings structs and AppSettings now live in BlitztextCore.
 
 typealias WorkflowOutputHandler = @MainActor (String) -> Void

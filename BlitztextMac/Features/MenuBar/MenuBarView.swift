@@ -13,8 +13,6 @@ struct MenuBarView: View {
                 onboardingPage
             case .settings:
                 settingsPage
-            case .workflow:
-                workflowPage
             }
         }
         .frame(width: 340)
@@ -33,10 +31,6 @@ struct MenuBarView: View {
                         Text("Blitztext")
                             .font(.system(size: 11, weight: .medium))
                             .foregroundStyle(.secondary)
-
-                        Text("macOS Preview")
-                            .font(.system(size: 9.5, weight: .medium))
-                            .foregroundStyle(.quaternary)
                     }
 
                     Spacer()
@@ -105,18 +99,23 @@ struct MenuBarView: View {
                     .padding(.bottom, 6)
             }
 
-            // Workflow list
-            VStack(spacing: 0) {
+            // Shortcut reference. Recording starts only via the keyboard
+            // shortcut; these rows are informational, not buttons.
+            VStack(alignment: .leading, spacing: 0) {
+                Text("Per Tastenk\u{00FC}rzel aufnehmen")
+                    .font(.system(size: 10.5, weight: .medium))
+                    .foregroundStyle(.tertiary)
+                    .padding(.horizontal, 18)
+                    .padding(.top, 6)
+                    .padding(.bottom, 2)
+
                 ForEach(WorkflowType.mainMenuCases) { type in
-                    let enabled = appState.isWorkflowAvailable(type)
                     WorkflowRowView(
                         type: type,
-                        enabled: enabled,
+                        enabled: appState.isWorkflowAvailable(type),
                         customName: appState.displayName(for: type),
                         subtitle: appState.workflowSubtitle(for: type)
-                    ) {
-                        appState.startWorkflow(type)
-                    }
+                    )
                 }
             }
             .padding(.vertical, 2)
@@ -414,7 +413,7 @@ struct MenuBarView: View {
 
                     onboardingStep(number: "1", title: "OpenAI Key speichern", detail: "Öffne die Einstellungen und trage deinen eigenen OpenAI API Key ein.")
                     onboardingStep(number: "2", title: "Berechtigungen erlauben", detail: "Mikrofon und Bedienungshilfen für das Einfügen freigeben.")
-                    onboardingStep(number: "3", title: "Workflow wählen", detail: "Blitztext oder einen der Verbesserer-Workflows direkt aus der Menüleiste starten.")
+                    onboardingStep(number: "3", title: "Per Tastenkürzel sprechen", detail: "Nimm mit dem Tastenkürzel auf — der fertige Text wird direkt eingefügt.")
                 }
 
                 HStack(spacing: 8) {
@@ -610,69 +609,6 @@ struct MenuBarView: View {
         }
     }
 
-    // MARK: - Workflow Page
-
-    private var workflowPage: some View {
-        VStack(spacing: 0) {
-            if let workflow = appState.activeWorkflow {
-                // Header bar
-                HStack {
-                    Button {
-                        appState.resetCurrentWorkflow()
-                    } label: {
-                        HStack(spacing: 3) {
-                            Image(systemName: "chevron.left")
-                                .font(.system(size: 10, weight: .semibold))
-                            Text("Zur\u{00FC}ck")
-                                .font(.system(size: 12))
-                        }
-                        .foregroundStyle(.secondary)
-                    }
-                    .buttonStyle(SubtleButtonStyle())
-
-                    Spacer()
-
-                    HStack(spacing: 5) {
-                        Image(systemName: workflow.type.icon)
-                            .font(.system(size: 11))
-                            .foregroundStyle(workflowIconColor(workflow.type))
-                        Text(appState.displayName(for: workflow.type))
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(.primary)
-                    }
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
-
-                Divider()
-
-                // Content
-                switch workflow.type {
-                case .transcription, .localTranscription:
-                    if let w = workflow as? TranscriptionWorkflow {
-                        TranscriptionActiveView(workflow: w)
-                    }
-                case .textImprover:
-                    if let w = workflow as? TextImprovementWorkflow {
-                        TextImproverActiveView(workflow: w)
-                    }
-                case .dampfAblassen:
-                    if let w = workflow as? DampfAblassenWorkflow {
-                        DampfAblassenActiveView(workflow: w)
-                    }
-                case .emojiText:
-                    if let w = workflow as? EmojiTextWorkflow {
-                        EmojiTextActiveView(workflow: w)
-                    }
-                }
-
-                Spacer(minLength: 0)
-
-                appFooter
-            }
-        }
-    }
-
     private var appFooter: some View {
         HStack {
             Spacer()
@@ -686,16 +622,6 @@ struct MenuBarView: View {
         }
         .padding(.vertical, 8)
     }
-
-    private func workflowIconColor(_ type: WorkflowType) -> Color {
-        switch type {
-        case .transcription: return .blue
-        case .localTranscription: return .green
-        case .textImprover: return .purple
-        case .dampfAblassen: return .orange
-        case .emojiText: return .cyan
-        }
-    }
 }
 
 // MARK: - Subtle Button Style
@@ -705,369 +631,5 @@ struct SubtleButtonStyle: ButtonStyle {
         configuration.label
             .opacity(configuration.isPressed ? 0.5 : 1.0)
             .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
-    }
-}
-
-// MARK: - Transcription Active View
-
-struct TranscriptionActiveView: View {
-    @Bindable var workflow: TranscriptionWorkflow
-
-    var body: some View {
-        VStack(spacing: 0) {
-            switch workflow.phase {
-            case .idle, .running:
-                if workflow.isRecording {
-                    recordingView(onStop: { workflow.stop() })
-                } else {
-                    processingView(message: "Wird transkribiert \u{2026}")
-                }
-
-            case .done(let text):
-                autoPasteView(text: text)
-
-            case .error(let msg):
-                errorView(message: msg) {
-                    workflow.reset()
-                    workflow.start()
-                }
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.bottom, 16)
-    }
-
-    @ViewBuilder
-    private func recordingView(onStop: @escaping () -> Void) -> some View {
-        VStack(spacing: 16) {
-            Spacer().frame(height: 20)
-
-            WaveformView(audioLevel: workflow.audioLevel, isRecording: true)
-                .frame(height: 44)
-                .padding(.horizontal, 24)
-
-            // Monochrome stop button
-            Button(action: onStop) {
-                ZStack {
-                    Circle()
-                        .strokeBorder(.primary.opacity(0.2), lineWidth: 1.5)
-                        .frame(width: 44, height: 44)
-                    RoundedRectangle(cornerRadius: 3)
-                        .fill(.primary.opacity(0.7))
-                        .frame(width: 14, height: 14)
-                }
-            }
-            .buttonStyle(.plain)
-
-            Text("Ich h\u{00F6}re zu \u{2026} Klicke zum Stoppen.")
-                .font(.system(size: 11))
-                .foregroundStyle(.tertiary)
-
-            Spacer().frame(height: 8)
-        }
-    }
-}
-
-// MARK: - Text Improver Active View
-
-struct TextImproverActiveView: View {
-    @Bindable var workflow: TextImprovementWorkflow
-
-    var body: some View {
-        VStack(spacing: 0) {
-            switch workflow.phase {
-            case .idle, .running:
-                if workflow.isRecording {
-                    recordingView(onStop: { workflow.stop() })
-                } else {
-                    VStack(spacing: 12) {
-                        Spacer().frame(height: 24)
-                        ProgressView()
-                            .scaleEffect(0.7)
-                            .controlSize(.small)
-                        if case .running(let msg) = workflow.phase {
-                            Text(msg)
-                                .font(.system(size: 11.5))
-                                .foregroundStyle(.secondary)
-                                .lineLimit(nil)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                        Spacer().frame(height: 24)
-                    }
-                }
-
-            case .done(let text):
-                autoPasteView(text: text)
-
-            case .error(let msg):
-                errorView(message: msg) {
-                    workflow.reset()
-                    workflow.start()
-                }
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.bottom, 16)
-    }
-
-    @ViewBuilder
-    private func recordingView(onStop: @escaping () -> Void) -> some View {
-        VStack(spacing: 16) {
-            Spacer().frame(height: 20)
-
-            WaveformView(audioLevel: workflow.audioLevel, isRecording: true)
-                .frame(height: 44)
-                .padding(.horizontal, 24)
-
-            // Monochrome stop button
-            Button(action: onStop) {
-                ZStack {
-                    Circle()
-                        .strokeBorder(.primary.opacity(0.2), lineWidth: 1.5)
-                        .frame(width: 44, height: 44)
-                    RoundedRectangle(cornerRadius: 3)
-                        .fill(.primary.opacity(0.7))
-                        .frame(width: 14, height: 14)
-                }
-            }
-            .buttonStyle(.plain)
-
-            Text("Ich h\u{00F6}re zu \u{2026} Klicke zum Stoppen.")
-                .font(.system(size: 11))
-                .foregroundStyle(.tertiary)
-
-            Spacer().frame(height: 8)
-        }
-    }
-}
-
-// MARK: - Rage Mode Active View
-
-struct DampfAblassenActiveView: View {
-    @Bindable var workflow: DampfAblassenWorkflow
-
-    var body: some View {
-        VStack(spacing: 0) {
-            switch workflow.phase {
-            case .idle, .running:
-                if workflow.isRecording {
-                    recordingView(onStop: { workflow.stop() })
-                } else {
-                    VStack(spacing: 12) {
-                        Spacer().frame(height: 24)
-                        ProgressView()
-                            .scaleEffect(0.7)
-                            .controlSize(.small)
-                        if case .running(let msg) = workflow.phase {
-                            Text(msg)
-                                .font(.system(size: 11.5))
-                                .foregroundStyle(.secondary)
-                                .lineLimit(nil)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                        Spacer().frame(height: 24)
-                    }
-                }
-
-            case .done(let text):
-                autoPasteView(text: text)
-
-            case .error(let msg):
-                errorView(message: msg) {
-                    workflow.reset()
-                    workflow.start()
-                }
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.bottom, 16)
-    }
-
-    @ViewBuilder
-    private func recordingView(onStop: @escaping () -> Void) -> some View {
-        VStack(spacing: 16) {
-            Spacer().frame(height: 20)
-
-            WaveformView(audioLevel: workflow.audioLevel, isRecording: true)
-                .frame(height: 44)
-                .padding(.horizontal, 24)
-
-            // Monochrome stop button
-            Button(action: onStop) {
-                ZStack {
-                    Circle()
-                        .strokeBorder(.primary.opacity(0.2), lineWidth: 1.5)
-                        .frame(width: 44, height: 44)
-                    RoundedRectangle(cornerRadius: 3)
-                        .fill(.primary.opacity(0.7))
-                        .frame(width: 14, height: 14)
-                }
-            }
-            .buttonStyle(.plain)
-
-            Text("Ich h\u{00F6}re zu \u{2026} Klicke zum Stoppen.")
-                .font(.system(size: 11))
-                .foregroundStyle(.tertiary)
-
-            Spacer().frame(height: 8)
-        }
-    }
-}
-
-// MARK: - Emoji Text Active View
-
-struct EmojiTextActiveView: View {
-    @Bindable var workflow: EmojiTextWorkflow
-
-    var body: some View {
-        VStack(spacing: 0) {
-            switch workflow.phase {
-            case .idle, .running:
-                if workflow.isRecording {
-                    recordingView(onStop: { workflow.stop() })
-                } else {
-                    VStack(spacing: 12) {
-                        Spacer().frame(height: 24)
-                        ProgressView()
-                            .scaleEffect(0.7)
-                            .controlSize(.small)
-                        if case .running(let msg) = workflow.phase {
-                            Text(msg)
-                                .font(.system(size: 11.5))
-                                .foregroundStyle(.secondary)
-                                .lineLimit(nil)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                        Spacer().frame(height: 24)
-                    }
-                }
-
-            case .done(let text):
-                autoPasteView(text: text)
-
-            case .error(let msg):
-                errorView(message: msg) {
-                    workflow.reset()
-                    workflow.start()
-                }
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.bottom, 16)
-    }
-
-    @ViewBuilder
-    private func recordingView(onStop: @escaping () -> Void) -> some View {
-        VStack(spacing: 16) {
-            Spacer().frame(height: 20)
-
-            WaveformView(audioLevel: workflow.audioLevel, isRecording: true)
-                .frame(height: 44)
-                .padding(.horizontal, 24)
-
-            // Monochrome stop button
-            Button(action: onStop) {
-                ZStack {
-                    Circle()
-                        .strokeBorder(.primary.opacity(0.2), lineWidth: 1.5)
-                        .frame(width: 44, height: 44)
-                    RoundedRectangle(cornerRadius: 3)
-                        .fill(.primary.opacity(0.7))
-                        .frame(width: 14, height: 14)
-                }
-            }
-            .buttonStyle(.plain)
-
-            Text("Ich h\u{00F6}re zu \u{2026} Klicke zum Stoppen.")
-                .font(.system(size: 11))
-                .foregroundStyle(.tertiary)
-
-            Spacer().frame(height: 8)
-        }
-    }
-}
-
-// MARK: - Shared Result / Error Views
-
-private func processingView(message: String) -> some View {
-    VStack(spacing: 12) {
-        Spacer().frame(height: 24)
-        ProgressView()
-            .scaleEffect(0.7)
-            .controlSize(.small)
-        Text(message)
-            .font(.system(size: 11.5))
-            .foregroundStyle(.secondary)
-        Spacer().frame(height: 24)
-    }
-}
-
-private func autoPasteView(text: String) -> some View {
-    VStack(spacing: 12) {
-        Spacer().frame(height: 20)
-
-        ZStack {
-            Circle()
-                .fill(Color.green.opacity(0.1))
-                .frame(width: 44, height: 44)
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 24))
-                .foregroundStyle(.green)
-        }
-
-        Text("Eingef\u{00FC}gt")
-            .font(.system(size: 14, weight: .semibold))
-            .foregroundStyle(.primary)
-
-        Text(text)
-            .font(.system(size: 11))
-            .foregroundStyle(.secondary)
-            .lineLimit(3)
-            .multilineTextAlignment(.center)
-            .padding(.horizontal, 8)
-
-        Spacer().frame(height: 12)
-    }
-}
-
-private func errorView(message: String, onRetry: @escaping () -> Void) -> some View {
-    VStack(spacing: 10) {
-        Spacer().frame(height: 16)
-
-        ZStack {
-            Circle()
-                .fill(Color.orange.opacity(0.1))
-                .frame(width: 40, height: 40)
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 18))
-                .foregroundStyle(.orange)
-        }
-
-        Text(message)
-            .font(.system(size: 11.5))
-            .foregroundStyle(.secondary)
-            .multilineTextAlignment(.center)
-            .lineLimit(nil)
-            .fixedSize(horizontal: false, vertical: true)
-            .padding(.horizontal, 8)
-
-        Button(action: onRetry) {
-            Text("Nochmal versuchen")
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(.primary)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 8)
-                .background(
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color.primary.opacity(0.06))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
-                )
-        }
-        .buttonStyle(SubtleButtonStyle())
-
-        Spacer().frame(height: 4)
     }
 }

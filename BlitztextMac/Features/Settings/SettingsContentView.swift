@@ -214,26 +214,6 @@ struct AccessSettingsView: View {
                 }
             }
 
-            VStack(alignment: .leading, spacing: 8) {
-                SectionLabel(text: "Updates")
-
-                Text("Diese Preview hat keinen oeffentlichen Update-Feed. Baue neue Versionen selbst aus dem Repo.")
-                    .font(.system(size: 10.5))
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                if !currentInstallLocation.isCanonicalInstall {
-                    Text("Hotkeys und Login-Start laufen am stabilsten, wenn Blitztext aus /Applications gestartet wird.")
-                        .font(.system(size: 10.5))
-                        .foregroundStyle(.orange)
-                        .fixedSize(horizontal: false, vertical: true)
-                } else {
-                    Text("Updates sind in dieser Preview manuell: pull, build, starten.")
-                        .font(.system(size: 10.5))
-                        .foregroundStyle(.secondary)
-                }
-            }
-
             // Launch at Login
             VStack(alignment: .leading, spacing: 8) {
                 SectionLabel(text: "Beim Anmelden")
@@ -259,25 +239,6 @@ struct AccessSettingsView: View {
                     .font(.system(size: 10.5))
                     .foregroundStyle(.red)
                     .fixedSize(horizontal: false, vertical: true)
-            }
-
-            VStack(alignment: .leading, spacing: 6) {
-                SectionLabel(text: "Hinweis")
-
-                Text("Fuer direktes Einfuegen: Blitztext einmal nach /Applications legen und danach Mikrofon sowie Bedienungshilfen erlauben.")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(10)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(Color.primary.opacity(0.03))
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .strokeBorder(Color.primary.opacity(0.05), lineWidth: 0.5)
-                    )
             }
 
             VStack(alignment: .leading, spacing: 8) {
@@ -515,88 +476,12 @@ struct CustomizeSettingsView: View {
     @Bindable var appState: AppState
     @State private var newTerm = ""
 
-    private var installedLocalModels: [LocalTranscriptionModel] {
-        LocalTranscriptionService.installedModels()
-    }
-
-    private var localModelOptions: [LocalTranscriptionModel] {
-        LocalTranscriptionService.modelOptions()
-    }
-
     private var audioInputDevices: [AudioInputDevice] {
         AudioInputDeviceService.availableDevices()
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
-
-            // MARK: Lokaler Modus
-            VStack(alignment: .leading, spacing: 10) {
-                SectionLabel(text: "Sicherer Lokaler Modus")
-
-                Toggle("Sicherer Lokaler Modus", isOn: $appState.appSettings.secureLocalModeEnabled)
-                    .toggleStyle(.switch)
-                    .onChange(of: appState.appSettings.secureLocalModeEnabled) { _, newValue in
-                        if newValue && !appState.selectedLocalModelIsInstalled {
-                            appState.installSelectedLocalModel()
-                        }
-                    }
-
-                HStack(spacing: 6) {
-                    Image(systemName: appState.selectedLocalModelIsInstalled ? "checkmark.circle.fill" : "arrow.down.circle.fill")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(appState.selectedLocalModelIsInstalled ? .green : .blue)
-                    Text(appState.selectedLocalModelIsInstalled ? "\(installedLocalModels.count) lokales WhisperKit-Modell installiert." : "Das ausgewählte Modell wird beim Installieren lokal gespeichert.")
-                        .font(.system(size: 10.5))
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                }
-
-                HStack(spacing: 8) {
-                    Text("Lokales Modell")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-
-                    Picker("", selection: Binding(
-                        get: { appState.selectedLocalModelName },
-                        set: { appState.appSettings.selectedLocalTranscriptionModelName = $0 }
-                    )) {
-                        ForEach(localModelOptions) { model in
-                            Text("\(model.displayName) · \(model.installStateLabel)").tag(model.id)
-                        }
-                    }
-                    .labelsHidden()
-                    .controlSize(.small)
-                    .disabled(appState.isDownloadingLocalModel)
-                }
-
-                if let progress = appState.localModelDownloadProgress {
-                    VStack(alignment: .leading, spacing: 4) {
-                        ProgressView(value: progress)
-                        Text(appState.localModelDownloadStatusText ?? "Modell wird geladen...")
-                            .font(.system(size: 10.5))
-                            .foregroundStyle(.secondary)
-                    }
-                } else {
-                    HStack(spacing: 10) {
-                        Button(appState.localModelDownloadButtonTitle) {
-                            appState.installSelectedLocalModel()
-                        }
-                        .controlSize(.small)
-                        .disabled(appState.selectedLocalModelIsInstalled)
-
-                        Link("Modellseite", destination: LocalTranscriptionService.modelPageURL(for: appState.selectedLocalModelName))
-                            .font(.system(size: 10.5, weight: .medium))
-                    }
-                }
-
-                if let errorText = appState.localModelDownloadErrorText {
-                    Text(errorText)
-                        .font(.system(size: 10.5))
-                        .foregroundStyle(.red)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
 
             // MARK: Mikrofon
             VStack(alignment: .leading, spacing: 10) {
@@ -715,53 +600,6 @@ struct CustomizeSettingsView: View {
                     TextField("z.B. \"E-Mails im Bereich Unternehmensberatung\"", text: $appState.textImprovementSettings.context)
                         .textFieldStyle(.roundedBorder)
                         .font(.system(size: 11))
-                }
-            }
-
-            // MARK: Blitztext $%&!
-            VStack(alignment: .leading, spacing: 10) {
-                SectionLabel(text: "Blitztext $%&!")
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Eigene Anweisung")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-
-                    TextEditor(text: $appState.dampfAblassenSettings.systemPrompt)
-                        .font(.system(size: 11))
-                        .frame(height: 80)
-                        .scrollContentBackground(.hidden)
-                        .padding(8)
-                        .background(Color.primary.opacity(0.03), in: RoundedRectangle(cornerRadius: 6))
-                        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color.primary.opacity(0.06), lineWidth: 0.5))
-                        .overlay(alignment: .topLeading) {
-                            if appState.dampfAblassenSettings.systemPrompt.isEmpty {
-                                Text("z.B. \"Formuliere den Text sachlich und freundlich um.\"")
-                                    .font(.system(size: 11))
-                                    .foregroundStyle(.quaternary)
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 12)
-                                    .allowsHitTesting(false)
-                            }
-                        }
-                }
-            }
-
-            // MARK: Blitztext :)
-            VStack(alignment: .leading, spacing: 10) {
-                SectionLabel(text: "Blitztext :)")
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Emoji-Dichte")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-
-                    Picker("", selection: $appState.emojiTextSettings.emojiDensity) {
-                        ForEach(EmojiTextSettings.EmojiDensity.allCases) { density in
-                            Text(density.displayName).tag(density)
-                        }
-                    }
-                    .pickerStyle(.segmented)
                 }
             }
 

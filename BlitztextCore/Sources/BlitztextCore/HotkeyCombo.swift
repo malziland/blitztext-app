@@ -21,8 +21,6 @@ public enum HotkeyCombo {
         if modifiers.contains([.function, .shift, .control]) { return .localTranscription }
         if modifiers.contains([.function, .shift]) { return .transcription }
         if modifiers.contains([.function, .control]) { return .textImprover }
-        if modifiers.contains([.function, .option]) { return .dampfAblassen }
-        if modifiers.contains([.function, .command]) { return .emojiText }
         return nil
     }
 }

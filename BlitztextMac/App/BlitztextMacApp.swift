@@ -93,19 +93,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
         switch mode {
         case .hold:
-            // Hold mode: start recording on key down
-            appState.startWorkflow(type, source: .hotkeyBackground)
+            // Hold mode: start background recording on key down, stop on release.
+            appState.startWorkflow(type)
 
         case .toggle:
-            // Toggle mode: if already recording same workflow, stop it
+            // Toggle mode: press once to start, press again to stop.
+            // Recording runs in the background; the menu-bar icon shows the state.
             if let active = appState.activeWorkflow,
                active.type == type,
                active.phase.isActive {
                 active.stop()
             } else {
-                appState.prepareForPopoverPresentation()
-                appState.startWorkflow(type, source: .manual)
-                showPopover()
+                appState.startWorkflow(type)
             }
         }
     }

@@ -25,7 +25,7 @@ public enum WorkflowAvailability {
             return localModelInstalled
         case .transcription:
             return secureLocalModeEnabled ? localModelInstalled : remoteKeyConfigured
-        case .textImprover, .dampfAblassen, .emojiText:
+        case .textImprover:
             return !secureLocalModeEnabled && remoteKeyConfigured
         }
     }

@@ -40,36 +40,6 @@ public struct TranscriptionSettings: Codable {
     }
 }
 
-public struct DampfAblassenSettings: Codable {
-    public var systemPrompt: String = "Du erhältst ein emotional gesprochenes Transkript. Erkenne zuerst das eigentliche Ziel, Anliegen und den wahren Frust der Person. Formuliere daraus eine klare, respektvolle und wirksame Nachricht, mit der die Person ihr Ziel eher erreicht. Bewahre relevante Fakten, konkrete Probleme, Grenzen, Erwartungen und die nötige Dringlichkeit. Entferne Beleidigungen, Drohungen, Sarkasmus, Unterstellungen und unnötige Eskalation. Wenn mehrere Vorwürfe genannt werden, verdichte sie auf die entscheidenden Kernpunkte. Der Ton soll ruhig, menschlich, bestimmt und lösungsorientiert sein. Gib NUR die fertige Nachricht zurück."
-    public var customName: String = ""
-
-    public init() {}
-}
-
-public struct EmojiTextSettings: Codable {
-    public var emojiDensity: EmojiDensity = .mittel
-    public var customName: String = ""
-
-    public init() {}
-
-    public enum EmojiDensity: String, Codable, CaseIterable, Identifiable {
-        case wenig
-        case mittel
-        case viel
-
-        public var id: String { rawValue }
-
-        public var displayName: String {
-            switch self {
-            case .wenig: return "Wenig"
-            case .mittel: return "Mittel"
-            case .viel: return "Viel"
-            }
-        }
-    }
-}
-
 public struct TextImprovementSettings: Codable {
     public var systemPrompt: String = ""
     public var customTerms: [String] = []

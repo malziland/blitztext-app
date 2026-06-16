@@ -9,9 +9,7 @@ final class SettingsContainerTests: XCTestCase {
         let container = SettingsContainer(
             app: AppSettings(hasSeenOnboarding: true),
             transcription: TranscriptionSettings(language: "en"),
-            textImprovement: textImprovement,
-            dampfAblassen: DampfAblassenSettings(),
-            emojiText: EmojiTextSettings()
+            textImprovement: textImprovement
         )
 
         let data = try JSONEncoder().encode(container)
@@ -20,21 +18,18 @@ final class SettingsContainerTests: XCTestCase {
         XCTAssertEqual(decoded.app?.hasSeenOnboarding, true)
         XCTAssertEqual(decoded.transcription.language, "en")
         XCTAssertEqual(decoded.textImprovement.context, "C")
-        XCTAssertNotNil(decoded.dampfAblassen)
-        XCTAssertNotNil(decoded.emojiText)
     }
 
-    func testOptionalMembersTolerateOlderFiles() throws {
-        // An older settings file written before app/dampfAblassen/emojiText existed.
+    func testOptionalAppMemberToleratesOlderFiles() throws {
+        // An older settings file written before the `app` section existed
+        // (and one that still carries removed workflow sections, which are ignored).
         let json = Data("""
-        {"transcription":{"language":"de"},"textImprovement":{"systemPrompt":"","customTerms":[],"context":"","tone":"neutral","customName":""}}
+        {"transcription":{"language":"de"},"textImprovement":{"systemPrompt":"","customTerms":[],"context":"","tone":"neutral","customName":""},"dampfAblassen":{"systemPrompt":"x","customName":""}}
         """.utf8)
 
         let decoded = try JSONDecoder().decode(SettingsContainer.self, from: json)
 
         XCTAssertNil(decoded.app)
-        XCTAssertNil(decoded.dampfAblassen)
-        XCTAssertNil(decoded.emojiText)
         XCTAssertEqual(decoded.transcription.language, "de")
     }
 }

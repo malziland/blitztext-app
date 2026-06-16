@@ -2,10 +2,8 @@ import XCTest
 import BlitztextCore
 
 final class LLMServicePromptTests: XCTestCase {
-    func testRewriteModelRawValues() {
-        // Guards DOC-001: the "$%&!" workflow requires gpt-4o, the others use gpt-4o-mini.
+    func testRewriteModelRawValue() {
         XCTAssertEqual(RewriteModel.fastEdit.rawValue, "gpt-4o-mini")
-        XCTAssertEqual(RewriteModel.rageMode.rawValue, "gpt-4o")
     }
 
     func testDefaultImprovementPromptIncludesToneTermsAndContext() {
@@ -41,9 +39,4 @@ final class LLMServicePromptTests: XCTestCase {
         XCTAssertTrue(prompt.contains("Begriff"))
     }
 
-    func testEmojiPromptDensityWording() {
-        XCTAssertTrue(LLMService.buildEmojiSystemPrompt(density: .wenig).contains("maximal 1-2"))
-        XCTAssertTrue(LLMService.buildEmojiSystemPrompt(density: .mittel).contains("regelmaessig"))
-        XCTAssertTrue(LLMService.buildEmojiSystemPrompt(density: .viel).contains("grosszuegig"))
-    }
 }

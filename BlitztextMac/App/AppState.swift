@@ -7,7 +7,6 @@ enum PopoverPage: Equatable {
     case main
     case onboarding
     case settings
-    case workflow
 }
 
 @Observable
@@ -30,9 +29,7 @@ final class AppState {
     var localModelDownloadStatusText: String?
     var localModelDownloadErrorText: String?
     var onMenuBarStatusChange: ((MenuBarStatus) -> Void)?
-    private var activeLaunchSource: WorkflowLaunchSource = .manual
     private var activePasteTarget: PasteTarget?
-    private var lastPopoverPasteTarget: PasteTarget?
     private var menuBarStatusResetTask: Task<Void, Never>?
     private var workflowCleanupTask: Task<Void, Never>?
 
@@ -47,12 +44,6 @@ final class AppState {
         didSet { saveSettings() }
     }
     var textImprovementSettings: TextImprovementSettings {
-        didSet { saveSettings() }
-    }
-    var dampfAblassenSettings: DampfAblassenSettings {
-        didSet { saveSettings() }
-    }
-    var emojiTextSettings: EmojiTextSettings {
         didSet { saveSettings() }
     }
 
@@ -75,8 +66,6 @@ final class AppState {
         self.appSettings = Self.loadAppSettings()
         self.transcriptionSettings = Self.loadTranscriptionSettings()
         self.textImprovementSettings = Self.loadTextImprovementSettings()
-        self.dampfAblassenSettings = Self.loadDampfAblassenSettings()
-        self.emojiTextSettings = Self.loadEmojiTextSettings()
         refreshAccessibilityPermission()
         autoSelectFastLocalModelIfNeeded()
         prewarmLocalTranscriptionIfNeeded()
@@ -88,12 +77,6 @@ final class AppState {
         switch type {
         case .textImprover:
             let name = textImprovementSettings.customName.trimmingCharacters(in: .whitespaces)
-            return name.isEmpty ? type.displayName : name
-        case .dampfAblassen:
-            let name = dampfAblassenSettings.customName.trimmingCharacters(in: .whitespaces)
-            return name.isEmpty ? type.displayName : name
-        case .emojiText:
-            let name = emojiTextSettings.customName.trimmingCharacters(in: .whitespaces)
             return name.isEmpty ? type.displayName : name
         default:
             return type.displayName
@@ -112,7 +95,7 @@ final class AppState {
             return "Online: Whisper über OpenAI."
         case .localTranscription:
             return "Nur lokal. Kein Server."
-        case .textImprover, .dampfAblassen, .emojiText:
+        case .textImprover:
             if appSettings.secureLocalModeEnabled {
                 return "Im lokalen Modus pausiert."
             }
@@ -148,20 +131,17 @@ final class AppState {
 
     // MARK: - Workflow Management
 
-    func startWorkflow(_ type: WorkflowType, source: WorkflowLaunchSource = .manual) {
-        guard isWorkflowAvailable(type) else {
-            if source == .manual {
-                page = .settings
-            }
-            return
-        }
+    /// Starts a recording workflow. Recording always runs in the background
+    /// (no popover window); the menu-bar icon reflects the state and the result
+    /// is pasted into whichever app was frontmost when recording began.
+    func startWorkflow(_ type: WorkflowType) {
+        guard isWorkflowAvailable(type) else { return }
 
         lastWorkflowErrorMessage = nil
         activeWorkflow?.stop()
         menuBarStatusResetTask?.cancel()
         workflowCleanupTask?.cancel()
-        activeLaunchSource = source
-        activePasteTarget = capturePasteTarget(for: source)
+        activePasteTarget = captureCurrentFrontmostApp()
 
         switch type {
         case .transcription:
@@ -198,31 +178,9 @@ final class AppState {
             configureWorkflowHandlers(workflow)
             activeWorkflow = workflow
             workflow.start()
-
-        case .dampfAblassen:
-            let workflow = DampfAblassenWorkflow(
-                settings: dampfAblassenSettings,
-                customTerms: textImprovementSettings.customTerms,
-                language: transcriptionSettings.language,
-                audioInputDeviceID: appSettings.selectedAudioInputDeviceID
-            )
-            configureWorkflowHandlers(workflow)
-            activeWorkflow = workflow
-            workflow.start()
-
-        case .emojiText:
-            let workflow = EmojiTextWorkflow(
-                settings: emojiTextSettings,
-                customTerms: textImprovementSettings.customTerms,
-                language: transcriptionSettings.language,
-                audioInputDeviceID: appSettings.selectedAudioInputDeviceID
-            )
-            configureWorkflowHandlers(workflow)
-            activeWorkflow = workflow
-            workflow.start()
         }
 
-        page = source.presentsWorkflowPage ? .workflow : .main
+        page = .main
     }
 
     func isWorkflowAvailable(_ type: WorkflowType) -> Bool {
@@ -234,15 +192,10 @@ final class AppState {
         )
     }
 
-    func stopCurrentWorkflow() {
-        activeWorkflow?.stop()
-    }
-
     func resetCurrentWorkflow() {
         activeWorkflow?.reset()
         activeWorkflow = nil
         activePasteTarget = nil
-        activeLaunchSource = .manual
         menuBarStatusResetTask?.cancel()
         workflowCleanupTask?.cancel()
         menuBarStatus = .idle
@@ -292,10 +245,6 @@ final class AppState {
         }
     }
 
-    func copyToClipboard(_ text: String) {
-        writeSensitiveTextToPasteboard(text)
-    }
-
     // MARK: - Auto-Paste
 
     /// Copies the text, restores focus when needed, then simulates Cmd+V.
@@ -330,14 +279,9 @@ final class AppState {
     }
 
     func prepareForPopoverPresentation() {
-        lastPopoverPasteTarget = captureCurrentFrontmostApp()
-        if let activeWorkflow, activeWorkflow.phase.isActive {
-            page = .workflow
-        } else if shouldShowOnboarding {
+        if shouldShowOnboarding {
             page = .onboarding
             markOnboardingSeen()
-        } else if page == .workflow {
-            page = .main
         } else if page == .onboarding {
             page = .main
         }
@@ -371,9 +315,7 @@ final class AppState {
         let container = SettingsContainer(
             app: appSettings,
             transcription: transcriptionSettings,
-            textImprovement: textImprovementSettings,
-            dampfAblassen: dampfAblassenSettings,
-            emojiText: emojiTextSettings
+            textImprovement: textImprovementSettings
         )
         if let data = try? JSONEncoder().encode(container) {
             try? data.write(to: Self.settingsURL)
@@ -390,14 +332,6 @@ final class AppState {
 
     private static func loadTextImprovementSettings() -> TextImprovementSettings {
         loadContainer()?.textImprovement ?? TextImprovementSettings()
-    }
-
-    private static func loadDampfAblassenSettings() -> DampfAblassenSettings {
-        loadContainer()?.dampfAblassen ?? DampfAblassenSettings()
-    }
-
-    private static func loadEmojiTextSettings() -> EmojiTextSettings {
-        loadContainer()?.emojiText ?? EmojiTextSettings()
     }
 
     private static func loadContainer() -> SettingsContainer? {
@@ -451,9 +385,7 @@ final class AppState {
 
     private func handleWorkflowOutput(_ text: String) {
         pasteAtCursor(text, target: activePasteTarget)
-        if activeLaunchSource == .hotkeyBackground {
-            page = .main
-        }
+        page = .main
         scheduleWorkflowCleanup(after: 1.05)
     }
 
@@ -488,11 +420,9 @@ final class AppState {
         case .error(let message):
             lastWorkflowErrorMessage = message
             menuBarStatus = .error(workflow.type)
-            if activeLaunchSource == .hotkeyBackground {
-                activeWorkflow = nil
-                activePasteTarget = nil
-                page = .main
-            }
+            activeWorkflow = nil
+            activePasteTarget = nil
+            page = .main
             scheduleMenuBarStatusReset(after: 1.6)
         }
     }
@@ -511,7 +441,6 @@ final class AppState {
             activeWorkflow.reset()
             self.activeWorkflow = nil
             self.activePasteTarget = nil
-            self.activeLaunchSource = .manual
             if !self.isPopoverShown {
                 self.page = .main
             }
@@ -526,15 +455,6 @@ final class AppState {
             if self.activeWorkflow == nil || !(self.activeWorkflow?.phase.isActive ?? false) {
                 self.menuBarStatus = .idle
             }
-        }
-    }
-
-    private func capturePasteTarget(for source: WorkflowLaunchSource) -> PasteTarget? {
-        switch source {
-        case .manual:
-            return lastPopoverPasteTarget
-        case .hotkeyBackground:
-            return captureCurrentFrontmostApp()
         }
     }
 
@@ -592,8 +512,6 @@ final class AppState {
         )
     }
 }
-
-// SettingsContainer now lives in BlitztextCore.
 
 // MARK: - Notification for Popover Dismissal
 

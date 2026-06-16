@@ -25,7 +25,7 @@ The app detects installed model folders that contain `AudioEncoder.mlmodelc`, `M
 
 ## Install From The App
 
-Open Blitztext, go to **Settings > Anpassen**, choose a local model, and click **Installieren**. You can also switch on **Sicherer Lokaler Modus** from the main popover; if the selected model is missing, Blitztext starts the download and installs it into the local cache.
+Open the Blitztext menu-bar popover, switch on **Sicherer Lokaler Modus**, choose a local model, and click **Installieren**. If the selected model is missing, Blitztext starts the download and installs it into the local cache.
 
 After the model is installed, the Blitztext transcription workflow can run in local mode. The rewriting workflows still use OpenAI, so they are paused while secure local mode is active.
 

@@ -6,15 +6,15 @@ final class HotkeyComboTests: XCTestCase {
         XCTAssertEqual(HotkeyCombo.workflowType(for: [.function, .shift, .control]), .localTranscription)
         XCTAssertEqual(HotkeyCombo.workflowType(for: [.function, .shift]), .transcription)
         XCTAssertEqual(HotkeyCombo.workflowType(for: [.function, .control]), .textImprover)
-        XCTAssertEqual(HotkeyCombo.workflowType(for: [.function, .option]), .dampfAblassen)
-        XCTAssertEqual(HotkeyCombo.workflowType(for: [.function, .command]), .emojiText)
     }
 
-    func testFunctionAloneAndEmptyReturnNil() {
+    func testFunctionAloneEmptyAndRemovedCombosReturnNil() {
         XCTAssertNil(HotkeyCombo.workflowType(for: [.function]))
         XCTAssertNil(HotkeyCombo.workflowType(for: []))
         XCTAssertNil(HotkeyCombo.workflowType(for: [.shift]))
         XCTAssertNil(HotkeyCombo.workflowType(for: [.command]))
+        XCTAssertNil(HotkeyCombo.workflowType(for: [.function, .option]))   // removed workflow
+        XCTAssertNil(HotkeyCombo.workflowType(for: [.function, .command]))  // removed workflow
     }
 
     func testMoreSpecificComboWins() {
