@@ -156,7 +156,7 @@ enum LLMService {
         (try? JSONDecoder().decode(OpenAIErrorResponse.self, from: data))?.error?.message
     }
 
-    private static func buildEmojiSystemPrompt(density: EmojiTextSettings.EmojiDensity) -> String {
+    static func buildEmojiSystemPrompt(density: EmojiTextSettings.EmojiDensity) -> String {
         let densityInstruction: String
         switch density {
         case .wenig:
@@ -170,7 +170,7 @@ enum LLMService {
         return "Du erhaeltst ein gesprochenes Transkript. Gib den Text moeglichst originalgetreu zurueck, aber fuege passende Emojis ein. \(densityInstruction) Korrigiere offensichtliche Sprach- und Grammatikfehler. Behalte den Stil und die Bedeutung bei. Gib NUR den Text mit Emojis zurueck, keine Erklaerungen."
     }
 
-    private static func buildSystemPrompt(settings: TextImprovementSettings) -> String {
+    static func buildSystemPrompt(settings: TextImprovementSettings) -> String {
         if !settings.systemPrompt.isEmpty {
             var prompt = settings.systemPrompt
             if !settings.customTerms.isEmpty {
