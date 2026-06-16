@@ -86,6 +86,10 @@ public enum TranscriptionService {
         return body
     }
 
+    /// Injectable HTTP transport so the request/response flow can be unit-tested.
+    typealias Transport = (URLRequest) async throws -> (Data, URLResponse)
+    private static let liveTransport: Transport = { try await session.data(for: $0) }
+
     public static func transcribe(
         audioURL: URL,
         customTerms: [String] = [],
@@ -99,43 +103,63 @@ public enum TranscriptionService {
             defer {
                 try? FileManager.default.removeItem(at: audioURL)
             }
-
-            let boundary = UUID().uuidString
-            var request = URLRequest(url: transcriptionsURL)
-            request.httpMethod = "POST"
-            request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-            request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
-            request.setValue("text/plain, application/json", forHTTPHeaderField: "Accept")
-            request.timeoutInterval = 60
-            request.cachePolicy = .reloadIgnoringLocalCacheData
-
             let audioData = try Data(contentsOf: audioURL, options: [.mappedIfSafe])
-            request.httpBody = multipartBody(
-                boundary: boundary,
+            return try await send(
                 audioData: audioData,
-                model: remoteModel,
+                apiKey: apiKey,
                 customTerms: customTerms,
                 language: language
             )
-
-            let (data, response) = try await session.data(for: request)
-
-            guard let httpResponse = response as? HTTPURLResponse else {
-                throw TranscriptionError.networkError("Ungueltige Antwort")
-            }
-
-            guard httpResponse.statusCode == 200 else {
-                throw TranscriptionError.apiError(openAIErrorMessage(from: data) ?? "Status \(httpResponse.statusCode)")
-            }
-
-            guard let text = String(data: data, encoding: .utf8)?
-                .trimmingCharacters(in: .whitespacesAndNewlines),
-                  !text.isEmpty else {
-                throw TranscriptionError.apiError("Transkription fehlgeschlagen")
-            }
-
-            return text
         }.value
+    }
+
+    /// Builds and sends the transcription request, then interprets the response.
+    /// Pure of file I/O so it can be unit-tested with an injected transport.
+    static func send(
+        audioData: Data,
+        apiKey: String,
+        customTerms: [String],
+        language: String?,
+        transport: Transport? = nil
+    ) async throws -> String {
+        let boundary = UUID().uuidString
+        var request = URLRequest(url: transcriptionsURL)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        request.setValue("text/plain, application/json", forHTTPHeaderField: "Accept")
+        request.timeoutInterval = 60
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.httpBody = multipartBody(
+            boundary: boundary,
+            audioData: audioData,
+            model: remoteModel,
+            customTerms: customTerms,
+            language: language
+        )
+
+        let (data, response) = try await (transport ?? liveTransport)(request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw TranscriptionError.networkError("Ungueltige Antwort")
+        }
+
+        return try parseTranscription(status: httpResponse.statusCode, data: data)
+    }
+
+    /// Interprets the transcription HTTP response. Pure and unit-testable.
+    static func parseTranscription(status: Int, data: Data) throws -> String {
+        guard status == 200 else {
+            throw TranscriptionError.apiError(openAIErrorMessage(from: data) ?? "Status \(status)")
+        }
+
+        guard let text = String(data: data, encoding: .utf8)?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+              !text.isEmpty else {
+            throw TranscriptionError.apiError("Transkription fehlgeschlagen")
+        }
+
+        return text
     }
 
     private static func openAIErrorMessage(from data: Data) -> String? {

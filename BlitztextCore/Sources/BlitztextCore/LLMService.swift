@@ -68,6 +68,11 @@ public enum LLMService {
         return URLSession(configuration: configuration)
     }()
 
+    /// Injectable HTTP transport so the full request/response flow can be unit-tested
+    /// without a real network call. Defaults to the live URLSession.
+    typealias Transport = (URLRequest) async throws -> (Data, URLResponse)
+    private static let liveTransport: Transport = { try await session.data(for: $0) }
+
     public static func improve(
         text: String,
         settings: TextImprovementSettings,
@@ -107,40 +112,61 @@ public enum LLMService {
         )
     }
 
-    private static func complete(
+    static func complete(
         text: String,
         systemPrompt: String,
         model: RewriteModel,
-        temperature: Double
+        temperature: Double,
+        apiKey: String? = nil,
+        transport: Transport? = nil
     ) async throws -> String {
-        guard let apiKey = KeychainService.load(key: .openAIAPIKey) else {
+        guard let key = apiKey ?? KeychainService.load(key: .openAIAPIKey) else {
             throw LLMError.notConfigured
         }
 
-        let payload = OpenAIChatRequest(
+        var request = URLRequest(url: chatCompletionsURL)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 45
+        request.httpBody = try chatRequestBody(
             model: model.rawValue,
-            messages: [
-                .init(role: "system", content: systemPrompt),
-                .init(role: "user", content: text),
-            ],
+            systemPrompt: systemPrompt,
+            userText: text,
             temperature: temperature
         )
 
-        var request = URLRequest(url: chatCompletionsURL)
-        request.httpMethod = "POST"
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.timeoutInterval = 45
-        request.httpBody = try JSONEncoder().encode(payload)
-
-        let (data, response) = try await session.data(for: request)
+        let (data, response) = try await (transport ?? liveTransport)(request)
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw LLMError.networkError("Keine gültige Antwort")
         }
 
-        guard httpResponse.statusCode == 200 else {
-            throw LLMError.apiError(openAIErrorMessage(from: data) ?? "Status \(httpResponse.statusCode)")
+        return try parseChatContent(status: httpResponse.statusCode, data: data)
+    }
+
+    /// Builds the chat-completions request body. Pure and unit-testable.
+    static func chatRequestBody(
+        model: String,
+        systemPrompt: String,
+        userText: String,
+        temperature: Double
+    ) throws -> Data {
+        let payload = OpenAIChatRequest(
+            model: model,
+            messages: [
+                .init(role: "system", content: systemPrompt),
+                .init(role: "user", content: userText),
+            ],
+            temperature: temperature
+        )
+        return try JSONEncoder().encode(payload)
+    }
+
+    /// Interprets the chat-completions HTTP response. Pure and unit-testable.
+    static func parseChatContent(status: Int, data: Data) throws -> String {
+        guard status == 200 else {
+            throw LLMError.apiError(openAIErrorMessage(from: data) ?? "Status \(status)")
         }
 
         let result = try JSONDecoder().decode(OpenAIChatResponse.self, from: data)
