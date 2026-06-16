@@ -1,4 +1,5 @@
 import Foundation
+import BlitztextCore
 import ServiceManagement
 
 enum BlitztextCleanupService {

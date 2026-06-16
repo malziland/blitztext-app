@@ -1,5 +1,4 @@
 import XCTest
-@testable import Blitztext
 import BlitztextCore
 
 final class LLMServicePromptTests: XCTestCase {
@@ -23,11 +22,11 @@ final class LLMServicePromptTests: XCTestCase {
         XCTAssertTrue(prompt.contains("Kundensupport"))
     }
 
-    func testCasualToneWordingDiffersFromFormal() {
-        var formal = TextImprovementSettings(); formal.tone = .formal
+    func testNeutralAndCasualToneWordingDiffer() {
+        var neutral = TextImprovementSettings(); neutral.tone = .neutral
         var casual = TextImprovementSettings(); casual.tone = .casual
 
-        XCTAssertTrue(LLMService.buildSystemPrompt(settings: formal).contains("formellen"))
+        XCTAssertTrue(LLMService.buildSystemPrompt(settings: neutral).contains("neutralen"))
         XCTAssertTrue(LLMService.buildSystemPrompt(settings: casual).contains("lockeren"))
     }
 

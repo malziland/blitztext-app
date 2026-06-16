@@ -1,10 +1,10 @@
 import Foundation
 import Security
 
-enum KeychainKey: String, CaseIterable, Codable {
+public enum KeychainKey: String, CaseIterable, Codable {
     case openAIAPIKey = "openAIAPIKey"
 
-    var label: String {
+    public var label: String {
         switch self {
         case .openAIAPIKey: return "OpenAI API Key"
         }
@@ -12,10 +12,10 @@ enum KeychainKey: String, CaseIterable, Codable {
 }
 
 /// Stores preview credentials in the user's macOS Keychain.
-enum KeychainService {
+public enum KeychainService {
     private static let service = "app.blitztext.preview.credentials"
 
-    static func save(key: KeychainKey, value: String) throws {
+    public static func save(key: KeychainKey, value: String) throws {
         let data = Data(value.utf8)
         var query = baseQuery(for: key)
         query[kSecValueData as String] = data
@@ -39,7 +39,7 @@ enum KeychainService {
         }
     }
 
-    static func load(key: KeychainKey) -> String? {
+    public static func load(key: KeychainKey) -> String? {
         var query = baseQuery(for: key)
         query[kSecMatchLimit as String] = kSecMatchLimitOne
         query[kSecReturnData as String] = true
@@ -57,16 +57,16 @@ enum KeychainService {
         return value
     }
 
-    static func delete(key: KeychainKey) {
+    public static func delete(key: KeychainKey) {
         SecItemDelete(baseQuery(for: key) as CFDictionary)
     }
 
     /// Force the next `load` to re-read credentials.
-    static func invalidateCache() {
+    public static func invalidateCache() {
         // Kept for call-site compatibility. Keychain reads do not use an in-memory cache.
     }
 
-    static var isConfigured: Bool {
+    public static var isConfigured: Bool {
         load(key: .openAIAPIKey) != nil
     }
 
@@ -79,10 +79,10 @@ enum KeychainService {
     }
 }
 
-enum KeychainError: LocalizedError {
+public enum KeychainError: LocalizedError {
     case saveFailed(OSStatus)
 
-    var errorDescription: String? {
+    public var errorDescription: String? {
         switch self {
         case .saveFailed(let status):
             return "Zugangsdaten konnten nicht im macOS Keychain gespeichert werden. Status: \(status)"

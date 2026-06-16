@@ -1,13 +1,12 @@
 import Foundation
-import BlitztextCore
 
-enum LLMError: LocalizedError {
+public enum LLMError: LocalizedError {
     case notConfigured
     case networkError(String)
     case apiError(String)
     case noContent
 
-    var errorDescription: String? {
+    public var errorDescription: String? {
         switch self {
         case .notConfigured:
             return "OpenAI API Key fehlt. Bitte in den Einstellungen hinterlegen."
@@ -21,7 +20,7 @@ enum LLMError: LocalizedError {
     }
 }
 
-enum RewriteModel: String {
+public enum RewriteModel: String {
     case fastEdit = "gpt-4o-mini"
     case rageMode = "gpt-4o"
 }
@@ -57,7 +56,7 @@ private struct OpenAIErrorResponse: Decodable {
     let error: APIError?
 }
 
-enum LLMService {
+public enum LLMService {
     private static let chatCompletionsURL = URL(string: "https://api.openai.com/v1/chat/completions")!
 
     private static let session: URLSession = {
@@ -69,7 +68,7 @@ enum LLMService {
         return URLSession(configuration: configuration)
     }()
 
-    static func improve(
+    public static func improve(
         text: String,
         settings: TextImprovementSettings,
         model: RewriteModel = .fastEdit
@@ -82,7 +81,7 @@ enum LLMService {
         )
     }
 
-    static func dampfAblassen(
+    public static func dampfAblassen(
         text: String,
         systemPrompt: String,
         model: RewriteModel = .rageMode
@@ -95,7 +94,7 @@ enum LLMService {
         )
     }
 
-    static func addEmojis(
+    public static func addEmojis(
         text: String,
         settings: EmojiTextSettings,
         model: RewriteModel = .fastEdit
@@ -157,7 +156,7 @@ enum LLMService {
         (try? JSONDecoder().decode(OpenAIErrorResponse.self, from: data))?.error?.message
     }
 
-    static func buildEmojiSystemPrompt(density: EmojiTextSettings.EmojiDensity) -> String {
+    public static func buildEmojiSystemPrompt(density: EmojiTextSettings.EmojiDensity) -> String {
         let densityInstruction: String
         switch density {
         case .wenig:
@@ -171,7 +170,7 @@ enum LLMService {
         return "Du erhaeltst ein gesprochenes Transkript. Gib den Text moeglichst originalgetreu zurueck, aber fuege passende Emojis ein. \(densityInstruction) Korrigiere offensichtliche Sprach- und Grammatikfehler. Behalte den Stil und die Bedeutung bei. Gib NUR den Text mit Emojis zurueck, keine Erklaerungen."
     }
 
-    static func buildSystemPrompt(settings: TextImprovementSettings) -> String {
+    public static func buildSystemPrompt(settings: TextImprovementSettings) -> String {
         if !settings.systemPrompt.isEmpty {
             var prompt = settings.systemPrompt
             if !settings.customTerms.isEmpty {

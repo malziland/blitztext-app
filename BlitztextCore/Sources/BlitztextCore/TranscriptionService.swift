@@ -1,12 +1,12 @@
 import Foundation
 
-enum TranscriptionError: LocalizedError {
+public enum TranscriptionError: LocalizedError {
     case noFile
     case notConfigured
     case networkError(String)
     case apiError(String)
 
-    var errorDescription: String? {
+    public var errorDescription: String? {
         switch self {
         case .noFile:
             return "Keine Audio-Datei gefunden"
@@ -28,8 +28,8 @@ private struct TranscriptionOpenAIErrorResponse: Decodable {
     let error: APIError?
 }
 
-enum TranscriptionService {
-    private static let remoteModel = "whisper-1"
+public enum TranscriptionService {
+    static let remoteModel = "whisper-1"
     private static let transcriptionsURL = URL(string: "https://api.openai.com/v1/audio/transcriptions")!
 
     private static let session: URLSession = {
@@ -41,7 +41,52 @@ enum TranscriptionService {
         return URLSession(configuration: configuration)
     }()
 
-    static func transcribe(
+    /// Builds the multipart/form-data body for the OpenAI audio transcription request.
+    /// Extracted as a pure function so it can be unit-tested without a network call.
+    static func multipartBody(
+        boundary: String,
+        audioData: Data,
+        model: String,
+        customTerms: [String],
+        language: String?
+    ) -> Data {
+        var body = Data()
+        body.append("--\(boundary)\r\n")
+        body.append("Content-Disposition: form-data; name=\"file\"; filename=\"audio.m4a\"\r\n")
+        body.append("Content-Type: audio/m4a\r\n\r\n")
+        body.append(audioData)
+        body.append("\r\n")
+
+        body.append("--\(boundary)\r\n")
+        body.append("Content-Disposition: form-data; name=\"model\"\r\n\r\n")
+        body.append(model)
+        body.append("\r\n")
+
+        body.append("--\(boundary)\r\n")
+        body.append("Content-Disposition: form-data; name=\"response_format\"\r\n\r\n")
+        body.append("text")
+        body.append("\r\n")
+
+        if !customTerms.isEmpty {
+            let prompt = "Eigennamen und Begriffe: \(customTerms.joined(separator: ", "))"
+            body.append("--\(boundary)\r\n")
+            body.append("Content-Disposition: form-data; name=\"prompt\"\r\n\r\n")
+            body.append(prompt)
+            body.append("\r\n")
+        }
+
+        if let language, !language.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            body.append("--\(boundary)\r\n")
+            body.append("Content-Disposition: form-data; name=\"language\"\r\n\r\n")
+            body.append(language.trimmingCharacters(in: .whitespacesAndNewlines))
+            body.append("\r\n")
+        }
+
+        body.append("--\(boundary)--\r\n")
+        return body
+    }
+
+    public static func transcribe(
         audioURL: URL,
         customTerms: [String] = [],
         language: String? = nil
@@ -65,41 +110,13 @@ enum TranscriptionService {
             request.cachePolicy = .reloadIgnoringLocalCacheData
 
             let audioData = try Data(contentsOf: audioURL, options: [.mappedIfSafe])
-
-            var body = Data()
-            body.append("--\(boundary)\r\n")
-            body.append("Content-Disposition: form-data; name=\"file\"; filename=\"audio.m4a\"\r\n")
-            body.append("Content-Type: audio/m4a\r\n\r\n")
-            body.append(audioData)
-            body.append("\r\n")
-
-            body.append("--\(boundary)\r\n")
-            body.append("Content-Disposition: form-data; name=\"model\"\r\n\r\n")
-            body.append(remoteModel)
-            body.append("\r\n")
-
-            body.append("--\(boundary)\r\n")
-            body.append("Content-Disposition: form-data; name=\"response_format\"\r\n\r\n")
-            body.append("text")
-            body.append("\r\n")
-
-            if !customTerms.isEmpty {
-                let prompt = "Eigennamen und Begriffe: \(customTerms.joined(separator: ", "))"
-                body.append("--\(boundary)\r\n")
-                body.append("Content-Disposition: form-data; name=\"prompt\"\r\n\r\n")
-                body.append(prompt)
-                body.append("\r\n")
-            }
-
-            if let language, !language.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                body.append("--\(boundary)\r\n")
-                body.append("Content-Disposition: form-data; name=\"language\"\r\n\r\n")
-                body.append(language.trimmingCharacters(in: .whitespacesAndNewlines))
-                body.append("\r\n")
-            }
-
-            body.append("--\(boundary)--\r\n")
-            request.httpBody = body
+            request.httpBody = multipartBody(
+                boundary: boundary,
+                audioData: audioData,
+                model: remoteModel,
+                customTerms: customTerms,
+                language: language
+            )
 
             let (data, response) = try await session.data(for: request)
 
