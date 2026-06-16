@@ -1,9 +1,9 @@
 import Foundation
 
-enum TranscriptionQualityService {
-    static let minimumRecordingDuration: TimeInterval = 0.8
+public enum TranscriptionQualityService {
+    public static let minimumRecordingDuration: TimeInterval = 0.8
 
-    static func shortRecordingMessage(duration: TimeInterval) -> String? {
+    public static func shortRecordingMessage(duration: TimeInterval) -> String? {
         if duration < minimumRecordingDuration {
             return "Aufnahme zu kurz (\(formattedDuration(duration)) s). Bitte etwas laenger sprechen."
         }
@@ -11,16 +11,16 @@ enum TranscriptionQualityService {
         return nil
     }
 
-    static func noSpeechMessage(duration: TimeInterval, maximumAudioLevel: Float, inputDeviceName: String?) -> String {
+    public static func noSpeechMessage(duration: TimeInterval, maximumAudioLevel: Float, inputDeviceName: String?) -> String {
         let deviceText = inputDeviceName.map { " ueber \"\($0)\"" } ?? ""
         return "Keine verwertbare Sprache erkannt\(deviceText). Dauer \(formattedDuration(duration)) s, Pegel \(formattedLevel(maximumAudioLevel))."
     }
 
-    static func cleanedTranscript(_ text: String) -> String {
+    public static func cleanedTranscript(_ text: String) -> String {
         text.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    static func isLikelyArtifact(_ text: String, recordingDuration: TimeInterval) -> Bool {
+    public static func isLikelyArtifact(_ text: String, recordingDuration: TimeInterval) -> Bool {
         let cleaned = cleanedTranscript(text)
         guard !cleaned.isEmpty else { return true }
 

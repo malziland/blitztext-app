@@ -20,6 +20,9 @@ packages:
     # Pinned to the immutable commit of tag v0.18.0 for supply-chain integrity:
     # a moved or re-pushed tag cannot silently change what is pulled. Bump deliberately.
     revision: e2adabbe7d98dc4d0ab9a5b75424ecc42a9cdbef
+  BlitztextCore:
+    # Local, platform-agnostic core (no AppKit/AVFoundation) for isolated tests + iOS reuse.
+    path: ../BlitztextCore
 
 targets:
   BlitztextMac:
@@ -50,6 +53,8 @@ targets:
     dependencies:
       - package: ArgmaxOSS
         product: WhisperKit
+      - package: BlitztextCore
+        product: BlitztextCore
     entitlements:
       path: Resources/BlitztextMac.entitlements
       properties:

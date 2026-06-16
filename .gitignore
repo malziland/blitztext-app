@@ -37,5 +37,9 @@ signing.local.sh
 Secrets.swift
 *.xcconfig
 
+# Swift Package Manager
+.build/
+.swiftpm/
+
 # Tooling
 node_modules/
