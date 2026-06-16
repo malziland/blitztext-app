@@ -4,6 +4,25 @@ All notable changes to this fork are documented here.
 
 This fork tracks local macOS usability fixes for running Blitztext without a hosted backend. The original upstream project remains the source of the baseline app.
 
+## 2026-06-16
+
+### Added
+
+- Added optional Developer ID signing (`./build.sh --developer-id`) so rebuilds keep a stable code-signature identity. This prevents macOS from resetting Microphone/Accessibility permissions on every build, which previously made grants appear lost and created duplicate Blitztext entries.
+- Added optional notarization (`./build.sh --notarize`): zips the app, submits to the Apple Notary Service, staples the ticket into the bundle, and validates it.
+- Added a pre-build check that fails fast with a clear message if the configured Developer ID identity is missing from the keychain.
+- Added `docs/signing.md` documenting the signing modes, the permission-reset root cause, the one-time TCC migration, and the one-time notarization profile setup.
+
+### Changed
+
+- Signing always uses the existing entitlements file, so microphone and network entitlements are never dropped. Dropped `codesign --deep` in favor of an inside-out approach (Apple advises against `--deep` for distribution).
+- On `--install`, the running Blitztext instance is now quit before the app in `/Applications` is replaced, and the installed copy reuses the already-signed (and, if notarized, stapled) bundle instead of being re-signed.
+- The build summary now reports the signing mode, and ad-hoc builds print a hint to use `--developer-id` for stable permissions.
+
+### Fixed
+
+- Ignored the notarization zip (`Blitztext-notarization.zip`, `*.zip`) so signing artifacts are never committed.
+
 ## 2026-06-13
 
 ### Added

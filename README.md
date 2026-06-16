@@ -86,7 +86,16 @@ For a local install into `/Applications`:
 ./build.sh --install --run
 ```
 
-The generated `.app` is ad-hoc signed for local development only. Do not treat it as a trusted redistributable binary. A public binary release would need Developer ID signing and notarization.
+By default the generated `.app` is ad-hoc signed for local development only.
+
+The build script also supports stable signing, which is recommended:
+
+```bash
+./build.sh --developer-id --install --run   # stable Developer ID signature
+./build.sh --notarize --install --run        # Developer ID + Apple notarization
+```
+
+Ad-hoc signatures change on every rebuild, which causes macOS to reset Microphone/Accessibility permissions and create duplicate app entries. A stable **Developer ID** signature keeps those grants across rebuilds. Notarization is only needed to hand the `.app` to other Macs. See [docs/signing.md](docs/signing.md) for the signing modes, the permission fix, and the one-time notarization setup.
 
 On first launch, either paste your own OpenAI API key for online workflows or install a WhisperKit/CoreML model for local transcription. Rewriting workflows still require OpenAI.
 

@@ -9,6 +9,16 @@ INSTALL_APP=false
 BUILD_CONFIGURATION="Release"
 UNIVERSAL_ARCHS="arm64 x86_64"
 
+# Signing / notarization (opt-in via flags; default stays ad-hoc).
+# Override values via environment, e.g.:
+#   BLITZTEXT_SIGN_IDENTITY="Developer ID Application: ... (TEAMID)" ./build.sh --developer-id
+SIGN_MODE="adhoc"            # adhoc | developer-id
+NOTARIZE=false
+SIGN_IDENTITY="${BLITZTEXT_SIGN_IDENTITY:-Developer ID Application: Christoph Krieger (REDACTED_TEAM_ID)}"
+NOTARY_PROFILE="${BLITZTEXT_NOTARY_PROFILE:-redacted-notary-profile}"
+NOTARY_APPLE_ID="${BLITZTEXT_NOTARY_APPLE_ID:-redacted@example.com}"
+NOTARY_TEAM_ID="${BLITZTEXT_NOTARY_TEAM_ID:-REDACTED_TEAM_ID}"
+
 for arg in "$@"; do
     case "$arg" in
         --debug)
@@ -23,9 +33,16 @@ for arg in "$@"; do
         --release)
             BUILD_CONFIGURATION="Release"
             ;;
+        --developer-id)
+            SIGN_MODE="developer-id"
+            ;;
+        --notarize)
+            SIGN_MODE="developer-id"
+            NOTARIZE=true
+            ;;
         *)
             echo "Unbekannte Option: $arg"
-            echo "Verwendung: ./build.sh [--install] [--run] [--release] [--debug]"
+            echo "Verwendung: ./build.sh [--install] [--run] [--release] [--debug] [--developer-id] [--notarize]"
             exit 1
             ;;
     esac
@@ -110,6 +127,104 @@ sign_local_app() {
         "$app_path" 2>&1
 }
 
+ensure_signing_identity() {
+    if [ "$SIGN_MODE" != "developer-id" ]; then
+        return
+    fi
+
+    # Fail fast (before the long build) if the Developer ID cert is missing.
+    if ! security find-identity -v -p codesigning | grep -qF "$SIGN_IDENTITY"; then
+        echo "❌ Signing-Identität nicht im Keychain gefunden:"
+        echo "   $SIGN_IDENTITY"
+        echo "   Verfügbare Code-Signing-Identitäten:"
+        security find-identity -v -p codesigning || true
+        exit 1
+    fi
+
+    echo "🔑 Signiere mit stabiler Identität: $SIGN_IDENTITY"
+    if [ "$NOTARIZE" = true ]; then
+        echo "   Notarisierung aktiv (Profil: $NOTARY_PROFILE)."
+    fi
+}
+
+sign_developer_id() {
+    local app_path="$1"
+
+    clean_code_signing_attributes "$app_path"
+
+    # Inside-out: sign nested frameworks/dylibs first (deepest first), WITHOUT
+    # the app entitlements. The current build links WhisperKit statically and has
+    # no Contents/Frameworks, but this stays correct if a dynamic framework is
+    # ever embedded. (Apple advises against `codesign --deep` for distribution.)
+    if [ -d "$app_path/Contents/Frameworks" ]; then
+        find "$app_path/Contents/Frameworks" -depth \
+            \( -name "*.framework" -o -name "*.dylib" \) -print0 \
+        | while IFS= read -r -d '' nested; do
+            codesign --force --options runtime --timestamp \
+                --sign "$SIGN_IDENTITY" "$nested"
+        done
+    fi
+
+    codesign \
+        --force \
+        --options runtime \
+        --timestamp \
+        --entitlements "$PROJECT_DIR/Resources/BlitztextMac.entitlements" \
+        --sign "$SIGN_IDENTITY" \
+        "$app_path" 2>&1
+}
+
+sign_app() {
+    local app_path="$1"
+
+    if [ "$SIGN_MODE" = "developer-id" ]; then
+        echo "🔏 Signiere mit Developer ID (stabile Identität – macOS-Berechtigungen bleiben über Rebuilds erhalten)."
+        sign_developer_id "$app_path"
+    else
+        echo "🔏 Signiere ad-hoc (lokal, nicht notarisiert)."
+        echo "   Hinweis: Ad-hoc-Signaturen ändern sich bei jedem Build → macOS setzt Mikrofon-/Bedienungshilfen-Rechte zurück."
+        echo "   Für stabile Berechtigungen mit --developer-id (oder --notarize) bauen."
+        sign_local_app "$app_path"
+    fi
+}
+
+quit_running_app() {
+    if pgrep -x "Blitztext" >/dev/null 2>&1; then
+        echo "🛑 Beende laufende Blitztext-Instanz vor dem Ersetzen ..."
+        osascript -e 'quit app "Blitztext"' >/dev/null 2>&1 || true
+        sleep 1
+        pkill -x "Blitztext" >/dev/null 2>&1 || true
+    fi
+}
+
+notarize_and_staple() {
+    local app_path="$1"
+    local zip_path="$SCRIPT_DIR/Blitztext-notarization.zip"
+
+    echo "📦 Packe App für die Notarisierung ..."
+    rm -f "$zip_path"
+    ditto --norsrc --noextattr --noqtn --noacl -c -k --keepParent "$app_path" "$zip_path"
+
+    echo "☁️  Sende an den Apple Notary Service (wartet auf das Ergebnis) ..."
+    if ! xcrun notarytool submit "$zip_path" \
+        --keychain-profile "$NOTARY_PROFILE" \
+        --wait; then
+        echo "❌ Notarisierung fehlgeschlagen."
+        echo "   Falls das Profil '$NOTARY_PROFILE' fehlt, einmalig interaktiv anlegen"
+        echo "   (fragt ein App-spezifisches Passwort ab, NICHT das normale Apple-ID-Passwort):"
+        echo "   xcrun notarytool store-credentials \"$NOTARY_PROFILE\" \\"
+        echo "     --apple-id \"$NOTARY_APPLE_ID\" --team-id \"$NOTARY_TEAM_ID\""
+        rm -f "$zip_path"
+        exit 1
+    fi
+
+    echo "📌 Hefte das Notarisierungs-Ticket an die App (staple) ..."
+    xcrun stapler staple "$app_path"
+    xcrun stapler validate "$app_path"
+    rm -f "$zip_path"
+    echo "✅ Notarisierung + Stapling erfolgreich."
+}
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$SCRIPT_DIR/BlitztextMac"
 PROJECT_FILE="$PROJECT_DIR/BlitztextMac.xcodeproj"
@@ -117,6 +232,7 @@ DERIVED_DATA_PATH="$SCRIPT_DIR/.derivedData-blitztextmac-build"
 cd "$PROJECT_DIR"
 
 ensure_xcodebuild_available
+ensure_signing_identity
 
 if command -v xcodegen &> /dev/null; then
     echo "⚙️  Generiere Xcode-Projekt ..."
@@ -168,9 +284,15 @@ clean_code_signing_attributes "$APP_PATH"
 DEST="$SCRIPT_DIR/Blitztext.app"
 rm -rf "$DEST"
 cp -R "$APP_PATH" "$DEST"
-echo "🔏 Signiere lokale Development-App ad-hoc. Dieses Artefakt ist nicht notarisiert."
-sign_local_app "$DEST"
+
+# Signieren (ad-hoc oder Developer ID, je nach Flag)
+sign_app "$DEST"
 verify_universal_app "$DEST"
+
+# Optional notarisieren – das Ticket wird direkt ins Bundle geheftet
+if [ "$NOTARIZE" = true ]; then
+    notarize_and_staple "$DEST"
+fi
 
 RUN_TARGET="$DEST"
 
@@ -182,10 +304,11 @@ if [ "$INSTALL_APP" = true ]; then
         echo "   Fuehre den Befehl mit passenden Rechten erneut aus oder ziehe die App manuell nach /Applications."
         exit 1
     fi
+    # Laufende Instanz beenden, damit Replace + Berechtigungen sauber bleiben
+    quit_running_app
     rm -rf "$INSTALL_DEST"
+    # Die Kopie übernimmt Signatur (und ggf. das Notar-Ticket) 1:1 – kein erneutes Signieren nötig
     cp -R "$DEST" "$INSTALL_DEST"
-    echo "🔏 Signiere lokale Development-App ad-hoc. Dieses Artefakt ist nicht notarisiert."
-    sign_local_app "$INSTALL_DEST"
     verify_universal_app "$INSTALL_DEST"
     RUN_TARGET="$INSTALL_DEST"
 fi
@@ -197,8 +320,17 @@ if [ "$INSTALL_APP" = true ]; then
     echo "   $RUN_TARGET"
 fi
 echo ""
+SIGN_LABEL="ad-hoc (lokal)"
+if [ "$SIGN_MODE" = "developer-id" ]; then
+    SIGN_LABEL="Developer ID"
+    if [ "$NOTARIZE" = true ]; then
+        SIGN_LABEL="Developer ID + notarisiert"
+    fi
+fi
+
 echo "Build-Typ: $BUILD_CONFIGURATION"
 echo "Architekturen: $UNIVERSAL_ARCHS"
+echo "Signatur: $SIGN_LABEL"
 echo "Kompatibel: Apple Silicon + Intel (macOS 14+)"
 echo ""
 echo "Naechste Schritte:"
@@ -207,6 +339,13 @@ echo "2. Mikrofon erlauben"
 echo "3. Fuer direktes Einfuegen zusaetzlich Bedienungshilfen erlauben"
 echo "4. In Blitztext deinen eigenen OpenAI API Key eintragen"
 echo "5. Loslegen und bei Bedarf im Code weiterbauen"
+if [ "$SIGN_MODE" = "developer-id" ]; then
+    echo ""
+    echo "ℹ️  Developer-ID-Signatur ist stabil: einmal erteilte Mikrofon-/Bedienungshilfen-Rechte"
+    echo "   bleiben ueber kuenftige Builds erhalten. Beim ERSTEN Umstieg von ad-hoc ggf. einmalig:"
+    echo "   tccutil reset Accessibility app.blitztext.mac && tccutil reset Microphone app.blitztext.mac"
+    echo "   und alte doppelte Blitztext-Eintraege in den Systemeinstellungen entfernen."
+fi
 echo ""
 
 # Optional: direkt starten

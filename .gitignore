@@ -18,6 +18,10 @@ Blitztext.app
 *.app/
 dist/
 models/
+
+# Signing / notarization artifacts
+Blitztext-notarization.zip
+*.zip
 *.mlmodel
 *.mlmodelc/
 *.mlpackage/
