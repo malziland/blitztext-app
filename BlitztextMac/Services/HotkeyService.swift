@@ -1,26 +1,6 @@
 import Cocoa
 import Observation
-
-enum HotkeyMode: String, Codable, CaseIterable, Identifiable {
-    case hold    // Tasten halten = aufnehmen, loslassen = stoppen
-    case toggle  // Einmal drücken = starten, nochmal/Escape = stoppen
-
-    var id: String { rawValue }
-
-    var displayName: String {
-        switch self {
-        case .hold: return "Halten"
-        case .toggle: return "Drücken"
-        }
-    }
-
-    var description: String {
-        switch self {
-        case .hold: return "Tasten halten zum Aufnehmen, loslassen zum Stoppen"
-        case .toggle: return "Einmal drücken zum Starten, nochmal oder Escape zum Stoppen"
-        }
-    }
-}
+import BlitztextCore
 
 enum HotkeyEvent {
     case down(WorkflowType)  // Keys pressed

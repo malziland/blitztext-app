@@ -1,5 +1,6 @@
 import XCTest
 @testable import Blitztext
+import BlitztextCore
 
 final class AppSettingsCodableTests: XCTestCase {
     func testFullRoundTripPreservesValues() throws {

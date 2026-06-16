@@ -1,4 +1,5 @@
 import SwiftUI
+import BlitztextCore
 
 struct MenuBarView: View {
     @Bindable var appState: AppState

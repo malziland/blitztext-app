@@ -1,5 +1,5 @@
 import XCTest
-@testable import Blitztext
+import BlitztextCore
 
 final class WorkflowTypeTests: XCTestCase {
     func testAllCasesCount() {

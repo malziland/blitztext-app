@@ -1,4 +1,5 @@
 import Foundation
+import BlitztextCore
 
 enum LLMError: LocalizedError {
     case notConfigured

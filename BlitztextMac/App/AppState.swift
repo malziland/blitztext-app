@@ -1,4 +1,5 @@
 import SwiftUI
+import BlitztextCore
 import Observation
 import AppKit
 

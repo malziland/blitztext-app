@@ -1,5 +1,6 @@
 import XCTest
 @testable import Blitztext
+import BlitztextCore
 
 final class LLMServicePromptTests: XCTestCase {
     func testRewriteModelRawValues() {

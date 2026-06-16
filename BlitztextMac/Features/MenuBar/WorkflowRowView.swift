@@ -1,4 +1,5 @@
 import SwiftUI
+import BlitztextCore
 
 struct WorkflowRowView: View {
     let type: WorkflowType
