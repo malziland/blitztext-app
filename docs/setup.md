@@ -49,7 +49,6 @@ The preview currently uses:
 
 - `whisper-1` for transcription
 - `gpt-4o-mini` for lightweight rewriting
-- `gpt-4o` for the calmer-message workflow
 
 You are responsible for API access, billing, and data handling in your own OpenAI account.
 

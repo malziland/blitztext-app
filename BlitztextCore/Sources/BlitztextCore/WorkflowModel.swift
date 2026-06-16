@@ -6,8 +6,6 @@ public enum WorkflowType: String, CaseIterable, Identifiable, Codable {
     case transcription
     case localTranscription
     case textImprover
-    case dampfAblassen
-    case emojiText
 
     public var id: String { rawValue }
 
@@ -20,8 +18,6 @@ public enum WorkflowType: String, CaseIterable, Identifiable, Codable {
         case .transcription: return "Blitztext"
         case .localTranscription: return "Blitztext Lokal"
         case .textImprover: return "Blitztext+"
-        case .dampfAblassen: return "Blitztext $%&!"
-        case .emojiText: return "Blitztext :)"
         }
     }
 
@@ -30,8 +26,6 @@ public enum WorkflowType: String, CaseIterable, Identifiable, Codable {
         case .transcription: return "mic.fill"
         case .localTranscription: return "lock.shield.fill"
         case .textImprover: return "text.badge.checkmark"
-        case .dampfAblassen: return "flame.fill"
-        case .emojiText: return "face.smiling"
         }
     }
 
@@ -40,8 +34,6 @@ public enum WorkflowType: String, CaseIterable, Identifiable, Codable {
         case .transcription: return "Sprache rein. Text raus."
         case .localTranscription: return "Nur lokal. Kein Server."
         case .textImprover: return "Geschrieben sprechen."
-        case .dampfAblassen: return "Frust rein. Entspannt raus."
-        case .emojiText: return "Text rein. Emojis dazu."
         }
     }
 
@@ -50,8 +42,6 @@ public enum WorkflowType: String, CaseIterable, Identifiable, Codable {
         case .transcription: return "fn"
         case .localTranscription: return "fn + Shift + Ctrl"
         case .textImprover: return "fn + Control"
-        case .dampfAblassen: return "fn + Option"
-        case .emojiText: return "fn + Cmd"
         }
     }
 
@@ -60,8 +50,6 @@ public enum WorkflowType: String, CaseIterable, Identifiable, Codable {
         case .transcription: return "blue"
         case .localTranscription: return "green"
         case .textImprover: return "purple"
-        case .dampfAblassen: return "orange"
-        case .emojiText: return "cyan"
         }
     }
 }
@@ -78,20 +66,6 @@ public enum WorkflowPhase: Equatable {
         switch self {
         case .idle: return false
         default: return true
-        }
-    }
-}
-
-public enum WorkflowLaunchSource: Equatable {
-    case manual
-    case hotkeyBackground
-
-    public var presentsWorkflowPage: Bool {
-        switch self {
-        case .manual:
-            return true
-        case .hotkeyBackground:
-            return false
         }
     }
 }

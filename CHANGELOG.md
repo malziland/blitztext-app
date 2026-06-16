@@ -4,69 +4,82 @@ All notable changes to this fork are documented here.
 
 This fork tracks local macOS usability fixes for running Blitztext without a hosted backend. The original upstream project remains the source of the baseline app.
 
-## 2026-06-16 — Architecture refactoring
-
-A behavior-neutral restructuring that separates the business logic from the macOS
-platform/UI layer and puts it under test. Verified by the test suite and a hands-on
-run-test; a read-only audit of the refactoring found no regressions.
-
-### Added
-
-- New platform-agnostic Swift package `BlitztextCore` (macOS + iOS) holding the domain
-  model, settings, `LLMService` / `TranscriptionService` / `KeychainService`, and the
-  pure logic (transcription-quality, workflow decisions, hotkey mapping, the Whisper
-  model catalog, key masking, workflow availability, paste backoff). It can be reused
-  by a future iOS app.
-- A test suite from scratch: **88 tests** (82 host-free core tests via `swift test`,
-  6 app-hosted workflow tests), ≈86% line coverage of the core logic. Network and
-  response-parsing logic was made testable via an injectable HTTP transport and
-  extracted pure functions, with no real network calls in tests.
-- `docs/architecture.md` documenting the core/app split and the testing strategy.
-
-### Changed
-
-- The four workflows now take an injectable recorder (`AudioRecording` protocol) plus
-  injectable transcribe/rewrite closures (defaults wire the real services), so the full
-  record → transcribe → (rewrite) → output flow is unit-tested with a fake recorder. The
-  live UI/recording path is unchanged.
-- CI now runs **both** test suites on every change (`swift test` for the package and
-  `xcodebuild test` for the app); previously only the 6 app tests ran in CI.
-
-## 2026-06-16 — Audit remediation
-
-Read-only security/reliability audit of the repository; all eight P3 findings fixed (no higher-severity issues were found).
-
-### Fixed
-
-- Recording stop fallback (`AudioRecorder.scheduleStopFallback`): when the capture delegate does not finalize the file within the timeout, the app now surfaces a "please try again" error and discards the unfinalized file instead of transcribing a possibly partial recording.
-- Orphaned temporary recordings: added `AudioRecorder.cleanupOrphanedRecordings()`, called at launch, to sweep `blitztext-*` files left in the temporary directory by a previous run that was hard-killed before its per-workflow cleanup ran (defense in depth for the `defer`-based deletion that already covers normal and error paths).
-- README listed `gpt-4o` as "optionally … for rewriting", but the "Blitztext $%&!" workflow always requires it. README now states which model each workflow uses, matching `docs/setup.md`.
-
-### Changed
-
-- CI secret-hygiene scan now also scans the **full Git history** (not just the working tree) and gained a targeted pattern for a hardcoded Apple signing identity with a real Team ID (the `signing.local.sh.example` placeholder does not match). `actions/checkout` is now pinned to a commit SHA (`df4cb1c`, v6.0.3) instead of a mutable tag, with `fetch-depth: 0` for the history scan.
-- The `argmax-oss-swift` (WhisperKit) dependency is now pinned to the immutable commit of tag `v0.18.0` (`revision:` in `project.yml`) instead of a movable version tag, so a re-pushed tag cannot silently change what is pulled.
-- Scrubbed the personal signing identifiers that an earlier commit had introduced into `build.sh`/`docs/signing.md` from the **entire Git history** (history rewrite + force-push), not just from `HEAD`.
-
 ## 2026-06-16
 
+A large round of work on this fork: the logic was split into a tested, platform-agnostic
+core; two workflows and several UI elements were removed; dictation was reduced to a
+keyboard-shortcut-only background flow; and Developer ID signing/notarization plus a
+security audit were added. All changes were verified by the test suite and hands-on
+run-tests.
+
 ### Added
 
-- Added optional Developer ID signing (`./build.sh --developer-id`) so rebuilds keep a stable code-signature identity. This prevents macOS from resetting Microphone/Accessibility permissions on every build, which previously made grants appear lost and created duplicate Blitztext entries.
-- Added optional notarization (`./build.sh --notarize`): zips the app, submits to the Apple Notary Service, staples the ticket into the bundle, and validates it.
-- Added a pre-build check that fails fast with a clear message if the configured Developer ID identity is missing from the keychain.
-- Added `docs/signing.md` documenting the signing modes, the permission-reset root cause, the one-time TCC migration, and the one-time notarization profile setup.
+- **`BlitztextCore`** — a platform-agnostic Swift package (macOS + iOS) holding the domain
+  model, settings, `LLMService` / `TranscriptionService` / `KeychainService`, and the pure
+  logic (transcription quality, workflow decisions, hotkey mapping, the Whisper model
+  catalog, key masking, workflow availability, paste backoff). It can be reused by a future
+  iOS app.
+- A **test suite from scratch** — host-free core tests (`swift test`) plus app-hosted
+  workflow tests driven by a `FakeRecorder` and injectable transcribe/rewrite closures, with
+  no real network calls (injectable HTTP transport). Currently 80 core + 6 app tests.
+- **Developer ID signing** (`./build.sh --developer-id`) and **notarization**
+  (`./build.sh --notarize`): a stable code-signature identity so macOS no longer resets
+  Microphone/Accessibility permissions on every rebuild; the notary ticket is stapled into
+  the bundle. A pre-build check fails fast if the configured identity is missing.
+- `docs/architecture.md` (core/app split + testing strategy) and `docs/signing.md` (signing
+  modes, the permission-reset root cause, the one-time TCC migration, notary profile setup).
 
 ### Changed
 
-- Kept personal signing values (Developer ID identity, notary profile, Apple ID, Team ID) out of the public repo: `build.sh` now reads them from a gitignored `signing.local.sh` (template: `signing.local.sh.example`) or environment variables, and stops with a clear message if `--developer-id`/`--notarize` is used without them.
-- Signing always uses the existing entitlements file, so microphone and network entitlements are never dropped. Dropped `codesign --deep` in favor of an inside-out approach (Apple advises against `--deep` for distribution).
-- On `--install`, the running Blitztext instance is now quit before the app in `/Applications` is replaced, and the installed copy reuses the already-signed (and, if notarized, stapled) bundle instead of being re-signed.
-- The build summary now reports the signing mode, and ad-hoc builds print a hint to use `--developer-id` for stable permissions.
+- **Dictation is now triggered only by the global keyboard shortcut**, recording in the
+  **background**: the menu-bar icon shows the state and the result is pasted into the app
+  that was frontmost when recording began. Clicking the menu no longer records. Both hotkey
+  modes (hold / toggle) record in the background. The menu-bar popover now shows status, a
+  non-interactive shortcut reference, and settings instead of tappable workflow rows.
+- The remaining workflows are **Blitztext** (transcription), **Blitztext Lokal** (on-device
+  transcription), and **Blitztext+** (transcribe + rewrite). The only rewriting model in use
+  is `gpt-4o-mini`.
+- The **Sicherer Lokaler Modus** switch now lives only in the menu-bar popover (toggle +
+  model selection + download); the duplicate Settings-page section was removed.
+- The workflows take an injectable recorder (`AudioRecording` protocol) plus injectable
+  transcribe/rewrite closures, so the full record → transcribe → (rewrite) → output flow is
+  unit-tested with a fake recorder.
+- Signing hygiene: personal signing values stay out of the repo (read from a gitignored
+  `signing.local.sh` or environment variables); signing always uses the entitlements file;
+  `codesign --deep` was replaced with an inside-out approach; on `--install` the running app
+  is quit first and the already-signed/stapled bundle is reused.
+- CI now runs **both** test suites on every change (`swift test` + `xcodebuild test`); the
+  `actions/checkout` action and the `argmax-oss-swift` (WhisperKit) dependency are pinned to
+  immutable commits; the secret-hygiene scan covers the full Git history.
+
+### Removed
+
+- The **Blitztext $%&!** (calmer-message) and **Blitztext :)** (emoji) workflows — deleted
+  from the code entirely: enum cases, workflow files, settings types
+  (`DampfAblassenSettings`, `EmojiTextSettings`), `LLMService` methods, the fn+option /
+  fn+command hotkey mappings, menu-bar badges, settings panels, and active views. Old
+  settings files that still contain these keys decode without error (the keys are ignored).
+- The "Updates" and "Hinweis" info boxes in Settings and the "macOS Preview" label.
+- The click-to-record path and the in-popover recording window (waveform + stop button),
+  including the now-dead `WorkflowLaunchSource`, the `.workflow` popover page,
+  `TranscriptionActiveView` / `TextImproverActiveView`, and `WaveformView`.
+- Dead/orphaned code: the unused `copyToClipboard` and `stopCurrentWorkflow` methods, the
+  `installedLocalModels` / `localModelOptions` helpers, the empty `Views/` folder, and stale
+  migration comments.
+- Personal signing identifiers an earlier commit had introduced into `build.sh` /
+  `docs/signing.md` were scrubbed from the **entire Git history** (rewrite + force-push).
 
 ### Fixed
 
-- Ignored the notarization zip (`Blitztext-notarization.zip`, `*.zip`) so signing artifacts are never committed.
+- Recording stop fallback (`AudioRecorder.scheduleStopFallback`): if the capture delegate
+  does not finalize the file within the timeout, the app surfaces a "please try again" error
+  and discards the unfinalized file instead of transcribing a partial recording.
+- Orphaned temporary recordings: `AudioRecorder.cleanupOrphanedRecordings()` runs at launch
+  to sweep `blitztext-*` temp files left by a previous run that was hard-killed before its
+  per-workflow cleanup ran.
+- README now states which model each workflow uses (no stale `gpt-4o`), matching
+  `docs/setup.md`. The notarization zip (`Blitztext-notarization.zip`, `*.zip`) is gitignored
+  so signing artifacts are never committed.
 
 ## 2026-06-13
 

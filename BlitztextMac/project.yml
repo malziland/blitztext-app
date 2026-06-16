@@ -32,7 +32,6 @@ targets:
       - path: App
       - path: Features
       - path: Services
-      - path: Views
       - path: Resources
         buildPhase: resources
         excludes:

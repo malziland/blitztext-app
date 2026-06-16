@@ -15,8 +15,8 @@ BlitztextMac   (the macOS application: platform implementations + SwiftUI UI)
 Everything here is platform-agnostic and unit-tested without launching the app
 (`swift test`, runs in well under a second). A future iOS app can reuse it as-is.
 
-- **Domain model:** `WorkflowType`, `WorkflowPhase`, `WorkflowLaunchSource`,
-  `HotkeyMode`, `TranscriptionBackend`, the per-workflow `Settings` structs,
+- **Domain model:** `WorkflowType`, `WorkflowPhase`, `HotkeyMode`,
+  `TranscriptionBackend`, the per-workflow `Settings` structs,
   `AppSettings`, `SettingsContainer`, `BlitztextDefaults`.
 - **Services (logic + thin I/O):** `LLMService`, `TranscriptionService`,
   `KeychainService` — request building and response parsing are pure functions;
@@ -48,8 +48,8 @@ Everything here is platform-agnostic and unit-tested without launching the app
 - **Core logic** → fast, host-free package tests (the bulk of the coverage).
 - **Workflow orchestration** → app-hosted tests driving the workflows with a
   `FakeRecorder` and mock transcribe/rewrite closures.
-- **UI and platform glue** (microphone, global hotkey, WhisperKit, the on-screen
-  window) → verified by running the app, not by unit tests, as is standard for
+- **UI and platform glue** (microphone, global hotkey, WhisperKit, the menu-bar
+  status icon) → verified by running the app, not by unit tests, as is standard for
   this kind of code.
 
 CI runs both test suites on every change: the core package via `swift test`, and

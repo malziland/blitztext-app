@@ -27,7 +27,6 @@ final class SettingsAndKeychainTests: XCTestCase {
     }
 
     func testDefaultsAndBackend() {
-        XCTAssertEqual(EmojiTextSettings().emojiDensity, .mittel)
         XCTAssertEqual(TranscriptionSettings().language, "de")
         XCTAssertEqual(TranscriptionBackend.remote.rawValue, "remote")
         XCTAssertEqual(TranscriptionBackend.local.rawValue, "local")
@@ -36,7 +35,6 @@ final class SettingsAndKeychainTests: XCTestCase {
     func testEnumDisplayNames() {
         XCTAssertEqual(TextImprovementSettings.TextTone.formal.displayName, "Formell")
         XCTAssertEqual(TextImprovementSettings.TextTone.neutral.displayName, "Neutral")
-        XCTAssertEqual(EmojiTextSettings.EmojiDensity.viel.displayName, "Viel")
         XCTAssertEqual(HotkeyMode.toggle.displayName, "Drücken")
         XCTAssertEqual(HotkeyMode.hold.displayName, "Halten")
     }

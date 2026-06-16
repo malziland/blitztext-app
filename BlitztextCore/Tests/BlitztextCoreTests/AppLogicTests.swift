@@ -33,7 +33,7 @@ final class AppLogicTests: XCTestCase {
     }
 
     func testRewriteWorkflowsRequireKeyAndPauseInLocalMode() {
-        for type in [WorkflowType.textImprover, .dampfAblassen, .emojiText] {
+        for type in [WorkflowType.textImprover] {
             XCTAssertTrue(WorkflowAvailability.isAvailable(type, secureLocalModeEnabled: false, remoteKeyConfigured: true, localModelInstalled: true))
             XCTAssertFalse(WorkflowAvailability.isAvailable(type, secureLocalModeEnabled: true, remoteKeyConfigured: true, localModelInstalled: true))
             XCTAssertFalse(WorkflowAvailability.isAvailable(type, secureLocalModeEnabled: false, remoteKeyConfigured: false, localModelInstalled: true))

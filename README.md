@@ -11,9 +11,10 @@ The upstream project remains the baseline. Local changes in this fork are docume
 ## What It Does
 
 - **Blitztext**: record speech and transcribe it.
+- **Blitztext Lokal**: record speech and transcribe it fully on-device via WhisperKit/CoreML — no audio leaves the Mac.
 - **Blitztext+**: record speech, transcribe it, then turn the rough draft into cleaner writing.
-- **Blitztext $%&!**: turn frustrated speech into a calmer message.
-- **Blitztext :)**: add fitting emojis to dictated text.
+
+Recording is started **only by the global keyboard shortcut** (the menu-bar icon shows the live status and the result is pasted into the app you were typing in). Opening the menu-bar icon shows status, the shortcut reference, and settings — it does not start a recording.
 
 ## Fork Notes
 
@@ -36,21 +37,6 @@ See [FORK.md](FORK.md) for more detail about what is retained, changed, and inte
 - Not production ready.
 - No warranty and no support guarantee.
 
-## Screenshots
-
-These screenshots are illustrative and may lag behind the newest fork-specific settings.
-
-<table>
-  <tr>
-    <td><img src="docs/screenshots/online-mode.png" alt="Blitztext online transcription mode" width="420"></td>
-    <td><img src="docs/screenshots/local-mode.png" alt="Blitztext secure local transcription mode" width="420"></td>
-  </tr>
-  <tr>
-    <td><img src="docs/screenshots/local-model-picker.png" alt="Blitztext local model picker" width="420"></td>
-    <td><img src="docs/screenshots/settings-customize.png" alt="Blitztext settings and customization view" width="420"></td>
-  </tr>
-</table>
-
 ## Requirements
 
 - macOS 14 or newer
@@ -58,8 +44,7 @@ These screenshots are illustrative and may lag behind the newest fork-specific s
 - [XcodeGen](https://github.com/yonaskolb/XcodeGen) to generate the Xcode project
 - For online transcription and rewriting: an OpenAI API key with access to:
   - `whisper-1` for transcription
-  - `gpt-4o-mini` for the "Blitztext+" and "Blitztext :)" rewriting workflows
-  - `gpt-4o` for the "Blitztext $%&!" calmer-message workflow
+  - `gpt-4o-mini` for the "Blitztext+" rewriting workflow
 - For local-only transcription: a WhisperKit/CoreML model in:
   `~/Library/Application Support/Blitztext/models/whisperkit/`
 
@@ -100,7 +85,7 @@ Ad-hoc signatures change on every rebuild, which causes macOS to reset Microphon
 
 On first launch, either paste your own OpenAI API key for online workflows or install a WhisperKit/CoreML model for local transcription. Rewriting workflows still require OpenAI.
 
-For fully local transcription, install a WhisperKit/CoreML model and enable **Sicherer Lokaler Modus** in the app.
+For fully local transcription, switch on **Sicherer Lokaler Modus** in the menu-bar popover, then choose and install a WhisperKit/CoreML model there.
 
 For a slower walkthrough, see [docs/setup.md](docs/setup.md).
 
@@ -139,7 +124,6 @@ BlitztextMac/    The macOS app (platform implementations + SwiftUI UI)
   App/           App lifecycle, AppState coordinator, paste handling
   Features/      Workflows, menu bar UI, settings
   Services/      AVFoundation recording, hotkeys, WhisperKit, local storage
-  Views/         Shared SwiftUI views
   Tests/         App-hosted workflow tests
 build.sh         Local build / sign / notarize script
 docs/            Setup, privacy, signing, architecture, and repository notes
@@ -150,7 +134,7 @@ platform + UI layer. See [docs/architecture.md](docs/architecture.md).
 
 ## Local Models
 
-Local transcription is available as an experimental WhisperKit/CoreML path. The app does not bundle a model; choose one in the app, click install, and then switch on **Sicherer Lokaler Modus** from the menu bar or settings.
+Local transcription is available as an experimental WhisperKit/CoreML path. The app does not bundle a model; from the menu-bar popover, switch on **Sicherer Lokaler Modus**, choose a model, and install it.
 
 See [docs/local-models.md](docs/local-models.md).
 

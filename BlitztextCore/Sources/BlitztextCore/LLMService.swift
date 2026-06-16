@@ -22,7 +22,6 @@ public enum LLMError: LocalizedError {
 
 public enum RewriteModel: String {
     case fastEdit = "gpt-4o-mini"
-    case rageMode = "gpt-4o"
 }
 
 private struct OpenAIChatRequest: Encodable {
@@ -81,32 +80,6 @@ public enum LLMService {
         try await complete(
             text: text,
             systemPrompt: buildSystemPrompt(settings: settings),
-            model: model,
-            temperature: 0.3
-        )
-    }
-
-    public static func dampfAblassen(
-        text: String,
-        systemPrompt: String,
-        model: RewriteModel = .rageMode
-    ) async throws -> String {
-        try await complete(
-            text: text,
-            systemPrompt: systemPrompt,
-            model: model,
-            temperature: 0.4
-        )
-    }
-
-    public static func addEmojis(
-        text: String,
-        settings: EmojiTextSettings,
-        model: RewriteModel = .fastEdit
-    ) async throws -> String {
-        try await complete(
-            text: text,
-            systemPrompt: buildEmojiSystemPrompt(density: settings.emojiDensity),
             model: model,
             temperature: 0.3
         )
@@ -180,20 +153,6 @@ public enum LLMService {
 
     private static func openAIErrorMessage(from data: Data) -> String? {
         (try? JSONDecoder().decode(OpenAIErrorResponse.self, from: data))?.error?.message
-    }
-
-    public static func buildEmojiSystemPrompt(density: EmojiTextSettings.EmojiDensity) -> String {
-        let densityInstruction: String
-        switch density {
-        case .wenig:
-            densityInstruction = "Setze nur vereinzelt Emojis ein, maximal 1-2 pro Absatz."
-        case .mittel:
-            densityInstruction = "Setze regelmaessig passende Emojis ein, etwa alle 1-2 Saetze."
-        case .viel:
-            densityInstruction = "Setze grosszuegig Emojis ein, gerne mehrere pro Satz."
-        }
-
-        return "Du erhaeltst ein gesprochenes Transkript. Gib den Text moeglichst originalgetreu zurueck, aber fuege passende Emojis ein. \(densityInstruction) Korrigiere offensichtliche Sprach- und Grammatikfehler. Behalte den Stil und die Bedeutung bei. Gib NUR den Text mit Emojis zurueck, keine Erklaerungen."
     }
 
     public static func buildSystemPrompt(settings: TextImprovementSettings) -> String {
