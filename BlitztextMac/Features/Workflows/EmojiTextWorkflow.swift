@@ -13,23 +13,33 @@ final class EmojiTextWorkflow: Workflow {
     var onOutput: WorkflowOutputHandler?
     var onPhaseChange: WorkflowPhaseChangeHandler?
 
-    private let recorder = AudioRecorder()
+    private let recorder: any AudioRecording
     private let settings: EmojiTextSettings
     private let customTerms: [String]
     private let language: String
     private let audioInputDeviceID: String
+    private let transcribe: (URL, [String], String) async throws -> String
+    private let rewrite: (String) async throws -> String
     private var processingTask: Task<Void, Never>?
 
     init(
         settings: EmojiTextSettings,
         customTerms: [String] = [],
         language: String = "de",
-        audioInputDeviceID: String = AudioInputDeviceService.systemDefaultDeviceID
+        audioInputDeviceID: String = AudioInputDeviceService.systemDefaultDeviceID,
+        recorder: (any AudioRecording)? = nil,
+        transcribe: @escaping (URL, [String], String) async throws -> String = {
+            try await TranscriptionService.transcribe(audioURL: $0, customTerms: $1, language: $2)
+        },
+        rewrite: ((String) async throws -> String)? = nil
     ) {
         self.settings = settings
         self.customTerms = customTerms
         self.language = language
         self.audioInputDeviceID = audioInputDeviceID
+        self.recorder = recorder ?? AudioRecorder()
+        self.transcribe = transcribe
+        self.rewrite = rewrite ?? { [settings] in try await LLMService.addEmojis(text: $0, settings: settings) }
     }
 
     // MARK: - Recording State
@@ -107,11 +117,7 @@ final class EmojiTextWorkflow: Workflow {
 
             do {
                 // Phase 1: Whisper transcription
-                let rawText = try await TranscriptionService.transcribe(
-                    audioURL: url,
-                    customTerms: vocabularyHints,
-                    language: language
-                )
+                let rawText = try await transcribe(url, vocabularyHints, language)
                 let cleanedRawText = TranscriptionQualityService.cleanedTranscript(rawText)
                 guard !TranscriptionQualityService.isLikelyArtifact(cleanedRawText, recordingDuration: recordingDuration) else {
                     phase = .error(
@@ -129,10 +135,7 @@ final class EmojiTextWorkflow: Workflow {
                 // Phase 2: Add emojis
                 phase = .running("Emojis werden eingef\u{00FC}gt ...")
 
-                let result = try await LLMService.addEmojis(
-                    text: cleanedRawText,
-                    settings: settings
-                )
+                let result = try await rewrite(cleanedRawText)
                 let cleanedResult = TranscriptionQualityService.cleanedTranscript(result)
                 guard cleanedResult != "KEINE_AUFNAHME_ERKANNT" else {
                     phase = .error(

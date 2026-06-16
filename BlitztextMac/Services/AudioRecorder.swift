@@ -4,7 +4,7 @@ import BlitztextCore
 
 @Observable
 @MainActor
-final class AudioRecorder: NSObject, AVCaptureFileOutputRecordingDelegate {
+final class AudioRecorder: NSObject, AVCaptureFileOutputRecordingDelegate, AudioRecording {
     var isRecording = false
     var recordingURL: URL?
     var errorMessage: String?

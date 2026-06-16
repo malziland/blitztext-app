@@ -13,20 +13,30 @@ final class TextImprovementWorkflow: Workflow {
     var onOutput: WorkflowOutputHandler?
     var onPhaseChange: WorkflowPhaseChangeHandler?
 
-    private let recorder = AudioRecorder()
+    private let recorder: any AudioRecording
     private let settings: TextImprovementSettings
     private let language: String
     private let audioInputDeviceID: String
+    private let transcribe: (URL, [String], String) async throws -> String
+    private let rewrite: (String) async throws -> String
     private var processingTask: Task<Void, Never>?
 
     init(
         settings: TextImprovementSettings,
         language: String = "de",
-        audioInputDeviceID: String = AudioInputDeviceService.systemDefaultDeviceID
+        audioInputDeviceID: String = AudioInputDeviceService.systemDefaultDeviceID,
+        recorder: (any AudioRecording)? = nil,
+        transcribe: @escaping (URL, [String], String) async throws -> String = {
+            try await TranscriptionService.transcribe(audioURL: $0, customTerms: $1, language: $2)
+        },
+        rewrite: ((String) async throws -> String)? = nil
     ) {
         self.settings = settings
         self.language = language
         self.audioInputDeviceID = audioInputDeviceID
+        self.recorder = recorder ?? AudioRecorder()
+        self.transcribe = transcribe
+        self.rewrite = rewrite ?? { [settings] in try await LLMService.improve(text: $0, settings: settings) }
     }
 
     // MARK: - Recording State
@@ -95,7 +105,7 @@ final class TextImprovementWorkflow: Workflow {
         let recordingDuration = recorder.lastRecordingDuration
         let maximumAudioLevel = recorder.maximumAudioLevel
         let inputDeviceName = recorder.inputDeviceName
-        let vocabularyHints = recordingDuration >= 0.9 ? settings.customTerms : []
+        let vocabularyHints = WorkflowLogic.vocabularyHints(recordingDuration: recordingDuration, customTerms: settings.customTerms)
 
         processingTask = Task {
             defer {
@@ -104,11 +114,7 @@ final class TextImprovementWorkflow: Workflow {
 
             do {
                 // Phase 1: Whisper transcription
-                let rawText = try await TranscriptionService.transcribe(
-                    audioURL: url,
-                    customTerms: vocabularyHints,
-                    language: language
-                )
+                let rawText = try await transcribe(url, vocabularyHints, language)
                 let cleanedRawText = TranscriptionQualityService.cleanedTranscript(rawText)
                 guard !TranscriptionQualityService.isLikelyArtifact(cleanedRawText, recordingDuration: recordingDuration) else {
                     phase = .error(
@@ -126,10 +132,7 @@ final class TextImprovementWorkflow: Workflow {
                 // Phase 2: GPT improvement
                 phase = .running("Text wird verbessert ...")
 
-                let improved = try await LLMService.improve(
-                    text: cleanedRawText,
-                    settings: settings
-                )
+                let improved = try await rewrite(cleanedRawText)
 
                 let cleanedImproved = TranscriptionQualityService.cleanedTranscript(improved)
                 phase = .done(cleanedImproved)

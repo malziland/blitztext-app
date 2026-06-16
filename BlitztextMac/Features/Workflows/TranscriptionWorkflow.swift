@@ -20,12 +20,14 @@ final class TranscriptionWorkflow: Workflow {
     var onOutput: WorkflowOutputHandler?
     var onPhaseChange: WorkflowPhaseChangeHandler?
 
-    private let recorder = AudioRecorder()
+    private let recorder: any AudioRecording
     private let customTerms: [String]
     private let language: String
     private let backend: TranscriptionBackend
     private let localModelName: String
     private let audioInputDeviceID: String
+    private let remoteTranscribe: (URL, [String], String) async throws -> String
+    private let localTranscribe: (URL, String, String) async throws -> String
     private var transcriptionTask: Task<Void, Never>?
 
     init(
@@ -34,7 +36,14 @@ final class TranscriptionWorkflow: Workflow {
         language: String = "de",
         backend: TranscriptionBackend = .remote,
         localModelName: String = LocalTranscriptionService.recommendedFastModelName,
-        audioInputDeviceID: String = AudioInputDeviceService.systemDefaultDeviceID
+        audioInputDeviceID: String = AudioInputDeviceService.systemDefaultDeviceID,
+        recorder: (any AudioRecording)? = nil,
+        remoteTranscribe: @escaping (URL, [String], String) async throws -> String = {
+            try await TranscriptionService.transcribe(audioURL: $0, customTerms: $1, language: $2)
+        },
+        localTranscribe: @escaping (URL, String, String) async throws -> String = {
+            try await LocalTranscriptionService.shared.transcribe(audioURL: $0, language: $1, modelName: $2)
+        }
     ) {
         self.type = type
         self.customTerms = customTerms
@@ -42,6 +51,9 @@ final class TranscriptionWorkflow: Workflow {
         self.backend = backend
         self.localModelName = localModelName
         self.audioInputDeviceID = audioInputDeviceID
+        self.recorder = recorder ?? AudioRecorder()
+        self.remoteTranscribe = remoteTranscribe
+        self.localTranscribe = localTranscribe
     }
 
     func start() {
@@ -118,17 +130,9 @@ final class TranscriptionWorkflow: Workflow {
                 let text: String
                 switch backend {
                 case .remote:
-                    text = try await TranscriptionService.transcribe(
-                        audioURL: url,
-                        customTerms: vocabularyHints,
-                        language: requestLanguage
-                    )
+                    text = try await remoteTranscribe(url, vocabularyHints, requestLanguage)
                 case .local:
-                    text = try await LocalTranscriptionService.shared.transcribe(
-                        audioURL: url,
-                        language: requestLanguage,
-                        modelName: localModelName
-                    )
+                    text = try await localTranscribe(url, requestLanguage, localModelName)
                 }
                 try Task.checkCancellation()
 

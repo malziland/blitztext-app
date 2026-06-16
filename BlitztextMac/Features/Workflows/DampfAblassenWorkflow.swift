@@ -13,23 +13,33 @@ final class DampfAblassenWorkflow: Workflow {
     var onOutput: WorkflowOutputHandler?
     var onPhaseChange: WorkflowPhaseChangeHandler?
 
-    private let recorder = AudioRecorder()
+    private let recorder: any AudioRecording
     private let settings: DampfAblassenSettings
     private let customTerms: [String]
     private let language: String
     private let audioInputDeviceID: String
+    private let transcribe: (URL, [String], String) async throws -> String
+    private let rewrite: (String) async throws -> String
     private var processingTask: Task<Void, Never>?
 
     init(
         settings: DampfAblassenSettings,
         customTerms: [String] = [],
         language: String = "de",
-        audioInputDeviceID: String = AudioInputDeviceService.systemDefaultDeviceID
+        audioInputDeviceID: String = AudioInputDeviceService.systemDefaultDeviceID,
+        recorder: (any AudioRecording)? = nil,
+        transcribe: @escaping (URL, [String], String) async throws -> String = {
+            try await TranscriptionService.transcribe(audioURL: $0, customTerms: $1, language: $2)
+        },
+        rewrite: ((String) async throws -> String)? = nil
     ) {
         self.settings = settings
         self.customTerms = customTerms
         self.language = language
         self.audioInputDeviceID = audioInputDeviceID
+        self.recorder = recorder ?? AudioRecorder()
+        self.transcribe = transcribe
+        self.rewrite = rewrite ?? { [settings] in try await LLMService.dampfAblassen(text: $0, systemPrompt: settings.systemPrompt) }
     }
 
     // MARK: - Recording State
@@ -107,11 +117,7 @@ final class DampfAblassenWorkflow: Workflow {
 
             do {
                 // Phase 1: Whisper transcription
-                let rawText = try await TranscriptionService.transcribe(
-                    audioURL: url,
-                    customTerms: vocabularyHints,
-                    language: language
-                )
+                let rawText = try await transcribe(url, vocabularyHints, language)
                 let cleanedRawText = TranscriptionQualityService.cleanedTranscript(rawText)
                 guard !TranscriptionQualityService.isLikelyArtifact(cleanedRawText, recordingDuration: recordingDuration) else {
                     phase = .error(
@@ -129,10 +135,7 @@ final class DampfAblassenWorkflow: Workflow {
                 // Phase 2: GPT dampf ablassen
                 phase = .running("Wird umformuliert ...")
 
-                let answer = try await LLMService.dampfAblassen(
-                    text: cleanedRawText,
-                    systemPrompt: settings.systemPrompt
-                )
+                let answer = try await rewrite(cleanedRawText)
                 let cleanedAnswer = TranscriptionQualityService.cleanedTranscript(answer)
                 guard cleanedAnswer != "KEINE_AUFNAHME_ERKANNT" else {
                     phase = .error(
