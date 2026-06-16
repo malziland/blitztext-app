@@ -32,6 +32,19 @@ Keep changes small when possible. Avoid unrelated cleanup in the same pull reque
 ./build.sh --debug
 ```
 
+## Tests
+
+```bash
+# Core package (fast, host-free)
+cd BlitztextCore && swift test
+
+# App (workflow tests)
+xcodebuild test -project BlitztextMac/BlitztextMac.xcodeproj -scheme BlitztextMac -destination 'platform=macOS'
+```
+
+Both suites also run in CI on every pull request. Business logic belongs in
+`BlitztextCore` with tests; see [docs/architecture.md](docs/architecture.md).
+
 ## Security And Privacy
 
 - Never commit API keys, tokens, private audio, or confidential transcripts.

@@ -132,14 +132,21 @@ Read [docs/privacy.md](docs/privacy.md) before using the preview with sensitive 
 ## Project Structure
 
 ```text
-BlitztextMac/
-  App/          App lifecycle and paste handling
-  Features/     Workflows, menu bar UI, settings
-  Services/     Recording, OpenAI calls, hotkeys, local storage
-  Views/        Shared SwiftUI views
-build.sh        Local build script
-docs/           Setup, privacy, local model, and repository notes
+BlitztextCore/   Platform-agnostic core (Swift package, macOS + iOS), unit-tested
+  Sources/       Domain model, settings, LLM/transcription/keychain services, pure logic
+  Tests/         Host-free unit tests (swift test)
+BlitztextMac/    The macOS app (platform implementations + SwiftUI UI)
+  App/           App lifecycle, AppState coordinator, paste handling
+  Features/      Workflows, menu bar UI, settings
+  Services/      AVFoundation recording, hotkeys, WhisperKit, local storage
+  Views/         Shared SwiftUI views
+  Tests/         App-hosted workflow tests
+build.sh         Local build / sign / notarize script
+docs/            Setup, privacy, signing, architecture, and repository notes
 ```
+
+The business logic lives in `BlitztextCore` and is tested; the app is a thin
+platform + UI layer. See [docs/architecture.md](docs/architecture.md).
 
 ## Local Models
 

@@ -4,6 +4,34 @@ All notable changes to this fork are documented here.
 
 This fork tracks local macOS usability fixes for running Blitztext without a hosted backend. The original upstream project remains the source of the baseline app.
 
+## 2026-06-16 — Architecture refactoring
+
+A behavior-neutral restructuring that separates the business logic from the macOS
+platform/UI layer and puts it under test. Verified by the test suite and a hands-on
+run-test; a read-only audit of the refactoring found no regressions.
+
+### Added
+
+- New platform-agnostic Swift package `BlitztextCore` (macOS + iOS) holding the domain
+  model, settings, `LLMService` / `TranscriptionService` / `KeychainService`, and the
+  pure logic (transcription-quality, workflow decisions, hotkey mapping, the Whisper
+  model catalog, key masking, workflow availability, paste backoff). It can be reused
+  by a future iOS app.
+- A test suite from scratch: **88 tests** (82 host-free core tests via `swift test`,
+  6 app-hosted workflow tests), ≈86% line coverage of the core logic. Network and
+  response-parsing logic was made testable via an injectable HTTP transport and
+  extracted pure functions, with no real network calls in tests.
+- `docs/architecture.md` documenting the core/app split and the testing strategy.
+
+### Changed
+
+- The four workflows now take an injectable recorder (`AudioRecording` protocol) plus
+  injectable transcribe/rewrite closures (defaults wire the real services), so the full
+  record → transcribe → (rewrite) → output flow is unit-tested with a fake recorder. The
+  live UI/recording path is unchanged.
+- CI now runs **both** test suites on every change (`swift test` for the package and
+  `xcodebuild test` for the app); previously only the 6 app tests ran in CI.
+
 ## 2026-06-16 — Audit remediation
 
 Read-only security/reliability audit of the repository; all eight P3 findings fixed (no higher-severity issues were found).
