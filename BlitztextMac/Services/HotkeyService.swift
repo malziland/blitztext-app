@@ -82,47 +82,11 @@ final class HotkeyService {
             }
         }
 
-        // fn + Shift + Control -> local transcription
-        if flags.contains([.function, .shift, .control]) {
+        // Map the held modifiers to a workflow (pure logic lives in BlitztextCore).
+        if let workflow = HotkeyCombo.workflowType(for: Self.coreModifiers(from: flags)) {
             if activeCombo == nil {
-                activeCombo = .localTranscription
-                onHotkeyEvent?(.down(.localTranscription))
-            }
-            return
-        }
-
-        // fn + Shift -> transcription
-        if flags.contains([.function, .shift]) {
-            if activeCombo == nil {
-                activeCombo = .transcription
-                onHotkeyEvent?(.down(.transcription))
-            }
-            return
-        }
-
-        // fn + Control -> Textverbesserer
-        if flags.contains([.function, .control]) {
-            if activeCombo == nil {
-                activeCombo = .textImprover
-                onHotkeyEvent?(.down(.textImprover))
-            }
-            return
-        }
-
-        // fn + Option -> Rage Mode
-        if flags.contains([.function, .option]) {
-            if activeCombo == nil {
-                activeCombo = .dampfAblassen
-                onHotkeyEvent?(.down(.dampfAblassen))
-            }
-            return
-        }
-
-        // fn + Command -> Emoji Mode
-        if flags.contains([.function, .command]) {
-            if activeCombo == nil {
-                activeCombo = .emojiText
-                onHotkeyEvent?(.down(.emojiText))
+                activeCombo = workflow
+                onHotkeyEvent?(.down(workflow))
             }
             return
         }
@@ -132,6 +96,16 @@ final class HotkeyService {
             activeCombo = nil
             onHotkeyEvent?(.up(combo))
         }
+    }
+
+    private static func coreModifiers(from flags: NSEvent.ModifierFlags) -> HotkeyModifiers {
+        var modifiers: HotkeyModifiers = []
+        if flags.contains(.function) { modifiers.insert(.function) }
+        if flags.contains(.shift) { modifiers.insert(.shift) }
+        if flags.contains(.control) { modifiers.insert(.control) }
+        if flags.contains(.option) { modifiers.insert(.option) }
+        if flags.contains(.command) { modifiers.insert(.command) }
+        return modifiers
     }
 
     private func scheduleFunctionOnlyTranscription() {

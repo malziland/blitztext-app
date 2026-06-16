@@ -1,5 +1,6 @@
 import AVFoundation
 import Observation
+import BlitztextCore
 
 @Observable
 @MainActor
@@ -195,7 +196,7 @@ final class AudioRecorder: NSObject, AVCaptureFileOutputRecordingDelegate {
     private func updateMetering() {
         let channels = audioOutput?.connections.flatMap(\.audioChannels) ?? []
         let power = channels.map(\.peakHoldLevel).max() ?? -160
-        let normalized = max(0, min(1, (power + 50) / 50))
+        let normalized = AudioMetering.normalizedLevel(powerDecibels: power)
         audioLevel = normalized
         maximumAudioLevel = max(maximumAudioLevel, normalized)
         lastRecordingDuration = currentRecordingDuration()

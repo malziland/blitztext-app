@@ -83,36 +83,17 @@ enum LocalTranscriptionError: LocalizedError {
 actor LocalTranscriptionService {
     static let shared = LocalTranscriptionService()
 
-    static let defaultModelName = "openai_whisper-large-v3-v20240930_626MB"
-    static let fastModelName = "openai_whisper-large-v3-v20240930_turbo_632MB"
-    static let recommendedFastModelName = BlitztextDefaults.recommendedFastWhisperModelName
-    static let modelRepo = "argmaxinc/whisperkit-coreml"
-    static let supportedModelNames = [
-        recommendedFastModelName,
-        fastModelName,
-        defaultModelName
-    ]
-    static let modelPageURL = URL(
-        string: "https://huggingface.co/argmaxinc/whisperkit-coreml/tree/main/openai_whisper-large-v3-v20240930_626MB"
-    )!
-    static let fastModelPageURL = URL(
-        string: "https://huggingface.co/argmaxinc/whisperkit-coreml/tree/main/openai_whisper-large-v3-v20240930_turbo_632MB"
-    )!
-    static let recommendedFastModelPageURL = URL(
-        string: "https://huggingface.co/argmaxinc/whisperkit-coreml/tree/main/openai_whisper-small_216MB"
-    )!
+    static let defaultModelName = WhisperModelCatalog.defaultModelName
+    static let fastModelName = WhisperModelCatalog.fastModelName
+    static let recommendedFastModelName = WhisperModelCatalog.recommendedFastModelName
+    static let modelRepo = WhisperModelCatalog.modelRepo
+    static let supportedModelNames = WhisperModelCatalog.supportedModelNames
+    static let modelPageURL = WhisperModelCatalog.defaultModelPageURL
+    static let fastModelPageURL = WhisperModelCatalog.fastModelPageURL
+    static let recommendedFastModelPageURL = WhisperModelCatalog.recommendedFastModelPageURL
 
     static func modelPageURL(for modelName: String) -> URL {
-        switch normalizedModelName(modelName) {
-        case recommendedFastModelName:
-            return recommendedFastModelPageURL
-        case fastModelName:
-            return fastModelPageURL
-        case defaultModelName:
-            return modelPageURL
-        default:
-            return URL(string: "https://huggingface.co/\(modelRepo)/tree/main/\(normalizedModelName(modelName))")!
-        }
+        WhisperModelCatalog.modelPageURL(for: modelName)
     }
 
     private var whisperKit: WhisperKit?
@@ -131,8 +112,7 @@ actor LocalTranscriptionService {
     }
 
     static func normalizedModelName(_ modelName: String) -> String {
-        let trimmed = modelName.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? recommendedFastModelName : trimmed
+        WhisperModelCatalog.normalizedModelName(modelName)
     }
 
     static func installedModels() -> [LocalTranscriptionModel] {
