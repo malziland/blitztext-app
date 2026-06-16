@@ -13,7 +13,6 @@ enum PopoverPage: Equatable {
 @Observable
 @MainActor
 final class AppState {
-    private static let pasteRetryInitialAttempts = 22
     private static let concealedPasteboardType = NSPasteboard.PasteboardType("org.nspasteboard.ConcealedType")
 
     var activeWorkflow: (any Workflow)?
@@ -227,16 +226,12 @@ final class AppState {
     }
 
     func isWorkflowAvailable(_ type: WorkflowType) -> Bool {
-        switch type {
-        case .localTranscription:
-            return selectedLocalModelIsInstalled
-        case .transcription:
-            return appSettings.secureLocalModeEnabled
-                ? selectedLocalModelIsInstalled
-                : KeychainService.isConfigured
-        case .textImprover, .dampfAblassen, .emojiText:
-            return !appSettings.secureLocalModeEnabled && KeychainService.isConfigured
-        }
+        WorkflowAvailability.isAvailable(
+            type,
+            secureLocalModeEnabled: appSettings.secureLocalModeEnabled,
+            remoteKeyConfigured: KeychainService.isConfigured,
+            localModelInstalled: selectedLocalModelIsInstalled
+        )
     }
 
     func stopCurrentWorkflow() {
@@ -321,7 +316,7 @@ final class AppState {
 
         attemptPasteTrusted(
             target: target,
-            attemptsRemaining: Self.pasteRetryInitialAttempts
+            attemptsRemaining: PasteRetry.initialAttempts
         )
     }
 
@@ -356,13 +351,8 @@ final class AppState {
     // MARK: - API Key Status
 
     func apiKeyDisplayValue(for key: KeychainKey) -> String {
-        guard let value = KeychainService.load(key: key), !value.isEmpty else {
-            return ""
-        }
-        if value.count > 8 {
-            return String(value.prefix(4)) + " \u{2022}\u{2022}\u{2022}\u{2022}\u{2022}\u{2022}\u{2022}\u{2022}"
-        }
-        return "\u{2022}\u{2022}\u{2022}\u{2022}\u{2022}\u{2022}\u{2022}\u{2022}"
+        guard let value = KeychainService.load(key: key) else { return "" }
+        return KeyMasking.masked(value)
     }
 
     func hasValue(for key: KeychainKey) -> Bool {
@@ -569,15 +559,7 @@ final class AppState {
             return
         }
 
-        let delay: TimeInterval
-        switch attemptsRemaining {
-        case 16...:
-            delay = 0.015
-        case 8...15:
-            delay = 0.025
-        default:
-            delay = 0.04
-        }
+        let delay = PasteRetry.delay(attemptsRemaining: attemptsRemaining)
 
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
             self?.attemptPasteTrusted(
@@ -611,13 +593,7 @@ final class AppState {
     }
 }
 
-private struct SettingsContainer: Codable {
-    var app: AppSettings?
-    var transcription: TranscriptionSettings
-    var textImprovement: TextImprovementSettings
-    var dampfAblassen: DampfAblassenSettings?
-    var emojiText: EmojiTextSettings?
-}
+// SettingsContainer now lives in BlitztextCore.
 
 // MARK: - Notification for Popover Dismissal
 
