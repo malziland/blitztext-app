@@ -21,7 +21,7 @@ final class AudioRecorder: NSObject, AVCaptureFileOutputRecordingDelegate {
     private var discardCurrentRecording = false
 
     /// Filename prefix for every temporary recording, so orphans can be swept on launch.
-    static let temporaryRecordingPrefix = "blitztext-"
+    nonisolated static let temporaryRecordingPrefix = "blitztext-"
 
     private func makeRecordingURL(fileExtension: String) -> URL {
         FileManager.default.temporaryDirectory
@@ -31,8 +31,7 @@ final class AudioRecorder: NSObject, AVCaptureFileOutputRecordingDelegate {
     /// Removes recordings left in the shared temporary directory by a previous run
     /// that was hard-killed before its per-workflow cleanup ran (defense in depth for
     /// the `defer`-based deletion). Best effort and safe to call at launch.
-    nonisolated static func cleanupOrphanedRecordings() {
-        let directory = FileManager.default.temporaryDirectory
+    nonisolated static func cleanupOrphanedRecordings(in directory: URL = FileManager.default.temporaryDirectory) {
         guard let entries = try? FileManager.default.contentsOfDirectory(
             at: directory,
             includingPropertiesForKeys: nil,

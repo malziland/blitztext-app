@@ -19,6 +19,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     let appState = AppState()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Skip menu-bar UI, hotkey, and permission setup when hosted under XCTest, so
+        // unit tests can @testable import the app module without launching the UI.
+        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil { return }
+
         // Sweep recordings orphaned by a previous hard-killed run before doing anything else.
         AudioRecorder.cleanupOrphanedRecordings()
 

@@ -62,3 +62,12 @@ jobs:
 
       - name: Build
         run: ./build.sh --debug
+
+      - name: Run unit tests (with coverage)
+        run: |
+          xcodebuild test \
+            -project BlitztextMac/BlitztextMac.xcodeproj \
+            -scheme BlitztextMac \
+            -destination 'platform=macOS' \
+            -enableCodeCoverage YES \
+            ONLY_ACTIVE_ARCH=YES
