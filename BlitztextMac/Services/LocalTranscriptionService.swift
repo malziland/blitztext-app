@@ -22,44 +22,11 @@ struct LocalTranscriptionModel: Identifiable, Hashable {
     }
 
     var shortDisplayName: String {
-        if id.contains("small") {
-            return "Whisper Small"
-        }
-        if id.contains("base") {
-            return "Whisper Base"
-        }
-        if id.contains("tiny") {
-            return "Whisper Tiny"
-        }
-        if id.contains("turbo") {
-            return "Whisper Turbo"
-        }
-        if id.contains("large-v3") {
-            return "Whisper Large"
-        }
-        return displayName
+        WhisperModelCatalog.shortDisplayName(for: id)
     }
 
     static func displayName(for modelName: String) -> String {
-        if modelName.contains("small") {
-            return "Whisper Small"
-        }
-        if modelName.contains("base") {
-            return "Whisper Base"
-        }
-        if modelName.contains("tiny") {
-            return "Whisper Tiny"
-        }
-        if modelName.contains("turbo") {
-            return "Whisper Large v3 Turbo"
-        }
-        if modelName.contains("large-v3") {
-            return "Whisper Large v3"
-        }
-        return modelName
-            .replacingOccurrences(of: "openai_", with: "")
-            .replacingOccurrences(of: "_", with: " ")
-            .replacingOccurrences(of: "-", with: " ")
+        WhisperModelCatalog.displayName(for: modelName)
     }
 }
 

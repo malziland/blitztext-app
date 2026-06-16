@@ -41,4 +41,25 @@ public enum WhisperModelCatalog {
             return URL(string: "https://huggingface.co/\(modelRepo)/tree/main/\(normalizedModelName(modelName))")!
         }
     }
+
+    public static func displayName(for modelName: String) -> String {
+        if modelName.contains("small") { return "Whisper Small" }
+        if modelName.contains("base") { return "Whisper Base" }
+        if modelName.contains("tiny") { return "Whisper Tiny" }
+        if modelName.contains("turbo") { return "Whisper Large v3 Turbo" }
+        if modelName.contains("large-v3") { return "Whisper Large v3" }
+        return modelName
+            .replacingOccurrences(of: "openai_", with: "")
+            .replacingOccurrences(of: "_", with: " ")
+            .replacingOccurrences(of: "-", with: " ")
+    }
+
+    public static func shortDisplayName(for modelName: String) -> String {
+        if modelName.contains("small") { return "Whisper Small" }
+        if modelName.contains("base") { return "Whisper Base" }
+        if modelName.contains("tiny") { return "Whisper Tiny" }
+        if modelName.contains("turbo") { return "Whisper Turbo" }
+        if modelName.contains("large-v3") { return "Whisper Large" }
+        return displayName(for: modelName)
+    }
 }

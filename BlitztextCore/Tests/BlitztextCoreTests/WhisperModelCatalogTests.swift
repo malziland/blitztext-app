@@ -28,4 +28,20 @@ final class WhisperModelCatalogTests: XCTestCase {
         let url = WhisperModelCatalog.modelPageURL(for: "custom_model_42")
         XCTAssertEqual(url.absoluteString, "https://huggingface.co/argmaxinc/whisperkit-coreml/tree/main/custom_model_42")
     }
+
+    func testDisplayNameMapsKnownFamilies() {
+        XCTAssertEqual(WhisperModelCatalog.displayName(for: "openai_whisper-small_216MB"), "Whisper Small")
+        XCTAssertEqual(WhisperModelCatalog.displayName(for: "openai_whisper-large-v3-v20240930_turbo_632MB"), "Whisper Large v3 Turbo")
+        XCTAssertEqual(WhisperModelCatalog.displayName(for: "openai_whisper-large-v3-v20240930_626MB"), "Whisper Large v3")
+    }
+
+    func testDisplayNameFallbackPrettifiesUnknown() {
+        XCTAssertEqual(WhisperModelCatalog.displayName(for: "openai_custom-model"), "custom model")
+    }
+
+    func testShortDisplayNameIsShorterForTurboAndLarge() {
+        XCTAssertEqual(WhisperModelCatalog.shortDisplayName(for: "openai_whisper-large-v3-v20240930_turbo_632MB"), "Whisper Turbo")
+        XCTAssertEqual(WhisperModelCatalog.shortDisplayName(for: "openai_whisper-large-v3-v20240930_626MB"), "Whisper Large")
+        XCTAssertEqual(WhisperModelCatalog.shortDisplayName(for: "openai_whisper-small_216MB"), "Whisper Small")
+    }
 }
