@@ -95,3 +95,66 @@ public struct TextImprovementSettings: Codable {
         }
     }
 }
+
+// MARK: - Defaults
+
+/// Default values shared by the core and the platform apps (single source of truth).
+public enum BlitztextDefaults {
+    public static let recommendedFastWhisperModelName = "openai_whisper-small_216MB"
+    public static let systemDefaultAudioDeviceID = "__system_default__"
+}
+
+// MARK: - App Settings
+
+public struct AppSettings: Codable {
+    public var hotkeyMode: HotkeyMode = .toggle
+    public var hasSeenOnboarding: Bool = false
+    public var secureLocalModeEnabled: Bool = false
+    public var selectedLocalTranscriptionModelName: String = BlitztextDefaults.recommendedFastWhisperModelName
+    public var hasAutoSelectedFastLocalModel: Bool = false
+    public var selectedAudioInputDeviceID: String = BlitztextDefaults.systemDefaultAudioDeviceID
+
+    public init(
+        hotkeyMode: HotkeyMode = .toggle,
+        hasSeenOnboarding: Bool = false,
+        secureLocalModeEnabled: Bool = false,
+        selectedLocalTranscriptionModelName: String = BlitztextDefaults.recommendedFastWhisperModelName,
+        hasAutoSelectedFastLocalModel: Bool = false,
+        selectedAudioInputDeviceID: String = BlitztextDefaults.systemDefaultAudioDeviceID
+    ) {
+        self.hotkeyMode = hotkeyMode
+        self.hasSeenOnboarding = hasSeenOnboarding
+        self.secureLocalModeEnabled = secureLocalModeEnabled
+        self.selectedLocalTranscriptionModelName = selectedLocalTranscriptionModelName
+        self.hasAutoSelectedFastLocalModel = hasAutoSelectedFastLocalModel
+        self.selectedAudioInputDeviceID = selectedAudioInputDeviceID
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case hotkeyMode
+        case hasSeenOnboarding
+        case secureLocalModeEnabled
+        case selectedLocalTranscriptionModelName
+        case hasAutoSelectedFastLocalModel
+        case selectedAudioInputDeviceID
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        hotkeyMode = try container.decodeIfPresent(HotkeyMode.self, forKey: .hotkeyMode) ?? .toggle
+        hasSeenOnboarding = try container.decodeIfPresent(Bool.self, forKey: .hasSeenOnboarding) ?? false
+        secureLocalModeEnabled = try container.decodeIfPresent(Bool.self, forKey: .secureLocalModeEnabled) ?? false
+        selectedLocalTranscriptionModelName = try container.decodeIfPresent(
+            String.self,
+            forKey: .selectedLocalTranscriptionModelName
+        ) ?? BlitztextDefaults.recommendedFastWhisperModelName
+        hasAutoSelectedFastLocalModel = try container.decodeIfPresent(
+            Bool.self,
+            forKey: .hasAutoSelectedFastLocalModel
+        ) ?? false
+        selectedAudioInputDeviceID = try container.decodeIfPresent(
+            String.self,
+            forKey: .selectedAudioInputDeviceID
+        ) ?? BlitztextDefaults.systemDefaultAudioDeviceID
+    }
+}

@@ -1,4 +1,5 @@
 import AVFoundation
+import BlitztextCore
 
 struct AudioInputDevice: Identifiable, Equatable {
     let id: String
@@ -11,7 +12,7 @@ struct AudioInputDevice: Identifiable, Equatable {
 }
 
 enum AudioInputDeviceService {
-    static let systemDefaultDeviceID = "__system_default__"
+    static let systemDefaultDeviceID = BlitztextDefaults.systemDefaultAudioDeviceID
 
     static func availableDevices() -> [AudioInputDevice] {
         let defaultDeviceID = AVCaptureDevice.default(for: .audio)?.uniqueID

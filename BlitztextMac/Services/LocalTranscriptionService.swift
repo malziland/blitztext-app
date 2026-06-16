@@ -1,5 +1,6 @@
 import Foundation
 import WhisperKit
+import BlitztextCore
 
 struct LocalTranscriptionModel: Identifiable, Hashable {
     let id: String
@@ -84,7 +85,7 @@ actor LocalTranscriptionService {
 
     static let defaultModelName = "openai_whisper-large-v3-v20240930_626MB"
     static let fastModelName = "openai_whisper-large-v3-v20240930_turbo_632MB"
-    static let recommendedFastModelName = "openai_whisper-small_216MB"
+    static let recommendedFastModelName = BlitztextDefaults.recommendedFastWhisperModelName
     static let modelRepo = "argmaxinc/whisperkit-coreml"
     static let supportedModelNames = [
         recommendedFastModelName,

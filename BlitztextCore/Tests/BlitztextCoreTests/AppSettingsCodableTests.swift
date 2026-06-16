@@ -1,5 +1,4 @@
 import XCTest
-@testable import Blitztext
 import BlitztextCore
 
 final class AppSettingsCodableTests: XCTestCase {
@@ -25,9 +24,8 @@ final class AppSettingsCodableTests: XCTestCase {
     }
 
     func testPartialJSONFallsBackToDefaults() throws {
-        // Omits hotkeyMode / secureLocalModeEnabled / hasAutoSelectedFastLocalModel to
-        // characterize the decodeIfPresent defaults. Provides selectedAudioInputDeviceID
-        // so decoding does not have to query the Core Audio system default.
+        // Omits hotkeyMode / secureLocalModeEnabled / hasAutoSelectedFastLocalModel; provides
+        // the device id so decoding does not depend on the system default.
         let json = Data("""
         {
           "hasSeenOnboarding": true,
@@ -43,5 +41,12 @@ final class AppSettingsCodableTests: XCTestCase {
         XCTAssertFalse(decoded.hasAutoSelectedFastLocalModel)
         XCTAssertTrue(decoded.hasSeenOnboarding)
         XCTAssertEqual(decoded.selectedAudioInputDeviceID, "device-42")
+    }
+
+    func testDefaultsComeFromBlitztextDefaults() {
+        let settings = AppSettings()
+        XCTAssertEqual(settings.selectedLocalTranscriptionModelName, BlitztextDefaults.recommendedFastWhisperModelName)
+        XCTAssertEqual(settings.selectedAudioInputDeviceID, BlitztextDefaults.systemDefaultAudioDeviceID)
+        XCTAssertEqual(settings.hotkeyMode, .toggle)
     }
 }
