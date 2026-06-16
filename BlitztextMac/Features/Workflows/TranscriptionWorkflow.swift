@@ -104,7 +104,7 @@ final class TranscriptionWorkflow: Workflow {
         let recordingDuration = recorder.lastRecordingDuration
         let maximumAudioLevel = recorder.maximumAudioLevel
         let inputDeviceName = recorder.inputDeviceName
-        let vocabularyHints = recordingDuration >= 0.9 ? customTerms : []
+        let vocabularyHints = WorkflowLogic.vocabularyHints(recordingDuration: recordingDuration, customTerms: customTerms)
         let requestLanguage = language
         let stopTime = Date()
 
@@ -133,26 +133,25 @@ final class TranscriptionWorkflow: Workflow {
                 try Task.checkCancellation()
 
                 let responseReceivedAt = Date()
-                let cleaned = TranscriptionQualityService.cleanedTranscript(text)
-                guard !TranscriptionQualityService.isLikelyArtifact(cleaned, recordingDuration: recordingDuration) else {
+                switch WorkflowLogic.outcome(
+                    forTranscript: text,
+                    recordingDuration: recordingDuration,
+                    maximumAudioLevel: maximumAudioLevel,
+                    inputDeviceName: inputDeviceName
+                ) {
+                case .rejected(let message):
                     transcriptionLogger.info(
                         "Transcription rejected short artifact after \(elapsedMilliseconds(since: stopTime)) ms"
                     )
-                    phase = .error(
-                        TranscriptionQualityService.noSpeechMessage(
-                            duration: recordingDuration,
-                            maximumAudioLevel: maximumAudioLevel,
-                            inputDeviceName: inputDeviceName
-                        )
-                    )
+                    phase = .error(message)
                     return
+                case .output(let cleaned):
+                    transcriptionLogger.info(
+                        "Transcription ready in \(elapsedMilliseconds(since: stopTime, until: responseReceivedAt)) ms (request \(elapsedMilliseconds(since: requestStart, until: responseReceivedAt)) ms)"
+                    )
+                    phase = .done(cleaned)
+                    onOutput?(cleaned)
                 }
-
-                transcriptionLogger.info(
-                    "Transcription ready in \(elapsedMilliseconds(since: stopTime, until: responseReceivedAt)) ms (request \(elapsedMilliseconds(since: requestStart, until: responseReceivedAt)) ms)"
-                )
-                phase = .done(cleaned)
-                onOutput?(cleaned)
             } catch {
                 transcriptionLogger.error(
                     "Transcription failed after \(elapsedMilliseconds(since: stopTime)) ms: \(error.localizedDescription, privacy: .private)"

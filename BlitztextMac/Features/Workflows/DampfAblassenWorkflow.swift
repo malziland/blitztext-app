@@ -98,7 +98,7 @@ final class DampfAblassenWorkflow: Workflow {
         let recordingDuration = recorder.lastRecordingDuration
         let maximumAudioLevel = recorder.maximumAudioLevel
         let inputDeviceName = recorder.inputDeviceName
-        let vocabularyHints = recordingDuration >= 0.9 ? customTerms : []
+        let vocabularyHints = WorkflowLogic.vocabularyHints(recordingDuration: recordingDuration, customTerms: customTerms)
 
         processingTask = Task {
             defer {
