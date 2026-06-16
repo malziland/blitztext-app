@@ -26,6 +26,31 @@ Signing with a **Developer ID** certificate produces a stable designated require
 (anchored on the team identifier), so macOS recognizes every rebuild as the *same* app
 and the grants persist — including across certificate renewals.
 
+## Local signing config (not committed)
+
+Personal signing values (your Developer ID identity, notary profile, Apple ID, Team ID)
+are **not** stored in this public repo. Provide them in one of two ways:
+
+1. A gitignored `signing.local.sh` next to `build.sh` — copy the template and edit:
+
+   ```bash
+   cp signing.local.sh.example signing.local.sh
+   # then edit signing.local.sh with your own values
+   ```
+
+   `build.sh` sources it automatically when present.
+
+2. Environment variables, which take precedence over the file:
+
+   ```bash
+   BLITZTEXT_SIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)" \
+   BLITZTEXT_NOTARY_PROFILE="your-notary-profile" \
+     ./build.sh --notarize --install
+   ```
+
+Without either, `--developer-id` / `--notarize` stop early with a clear message. The
+default ad-hoc build needs no configuration.
+
 ## Recommended local build
 
 ```bash
@@ -58,25 +83,18 @@ the grants stick from then on.
 ## One-time notarization setup
 
 Notarization needs an **app-specific password** for the Apple ID (never the normal
-password). Create the keychain profile once, interactively:
+password). Create the keychain profile once, interactively, using your own values:
 
 ```bash
-xcrun notarytool store-credentials "redacted-notary-profile" \
-  --apple-id "redacted@example.com" \
-  --team-id "REDACTED_TEAM_ID"
+xcrun notarytool store-credentials "your-notary-profile" \
+  --apple-id "you@example.com" \
+  --team-id "YOURTEAMID"
 ```
 
 The password is entered interactively and stored only in the macOS Keychain — never in
-this repo, the code, or any log. `build.sh --notarize` then submits, waits, staples the
-ticket into the bundle, and validates it.
-
-You can override the identity and profile names without editing the script:
-
-```bash
-BLITZTEXT_SIGN_IDENTITY="Developer ID Application: ... (TEAMID)" \
-BLITZTEXT_NOTARY_PROFILE="my-profile" \
-  ./build.sh --notarize --install
-```
+this repo, the code, or any log. Put the matching `NOTARY_PROFILE` into your
+`signing.local.sh`. `build.sh --notarize` then submits, waits, staples the ticket into
+the bundle, and validates it.
 
 ## Verifying a build
 

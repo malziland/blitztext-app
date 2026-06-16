@@ -10,14 +10,15 @@ BUILD_CONFIGURATION="Release"
 UNIVERSAL_ARCHS="arm64 x86_64"
 
 # Signing / notarization (opt-in via flags; default stays ad-hoc).
-# Override values via environment, e.g.:
-#   BLITZTEXT_SIGN_IDENTITY="Developer ID Application: ... (TEAMID)" ./build.sh --developer-id
+# Personal signing values are NOT committed (this is a public repo). Provide them via:
+#   1) a gitignored `signing.local.sh` next to this script (see signing.local.sh.example), or
+#   2) environment variables (BLITZTEXT_SIGN_IDENTITY, BLITZTEXT_NOTARY_PROFILE, ...).
 SIGN_MODE="adhoc"            # adhoc | developer-id
 NOTARIZE=false
-SIGN_IDENTITY="${BLITZTEXT_SIGN_IDENTITY:-Developer ID Application: Christoph Krieger (REDACTED_TEAM_ID)}"
-NOTARY_PROFILE="${BLITZTEXT_NOTARY_PROFILE:-redacted-notary-profile}"
-NOTARY_APPLE_ID="${BLITZTEXT_NOTARY_APPLE_ID:-redacted@example.com}"
-NOTARY_TEAM_ID="${BLITZTEXT_NOTARY_TEAM_ID:-REDACTED_TEAM_ID}"
+SIGN_IDENTITY=""
+NOTARY_PROFILE=""
+NOTARY_APPLE_ID=""
+NOTARY_TEAM_ID=""
 
 for arg in "$@"; do
     case "$arg" in
@@ -132,6 +133,13 @@ ensure_signing_identity() {
         return
     fi
 
+    if [ -z "$SIGN_IDENTITY" ]; then
+        echo "❌ Keine Signing-Identität konfiguriert."
+        echo "   Lege 'signing.local.sh' an (Vorlage: signing.local.sh.example)"
+        echo "   oder exportiere BLITZTEXT_SIGN_IDENTITY=\"Developer ID Application: ... (TEAMID)\"."
+        exit 1
+    fi
+
     # Fail fast (before the long build) if the Developer ID cert is missing.
     if ! security find-identity -v -p codesigning | grep -qF "$SIGN_IDENTITY"; then
         echo "❌ Signing-Identität nicht im Keychain gefunden:"
@@ -201,6 +209,12 @@ notarize_and_staple() {
     local app_path="$1"
     local zip_path="$SCRIPT_DIR/Blitztext-notarization.zip"
 
+    if [ -z "$NOTARY_PROFILE" ]; then
+        echo "❌ Kein Notar-Profil konfiguriert."
+        echo "   In 'signing.local.sh' NOTARY_PROFILE setzen oder BLITZTEXT_NOTARY_PROFILE exportieren."
+        exit 1
+    fi
+
     echo "📦 Packe App für die Notarisierung ..."
     rm -f "$zip_path"
     ditto --norsrc --noextattr --noqtn --noacl -c -k --keepParent "$app_path" "$zip_path"
@@ -229,6 +243,18 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$SCRIPT_DIR/BlitztextMac"
 PROJECT_FILE="$PROJECT_DIR/BlitztextMac.xcodeproj"
 DERIVED_DATA_PATH="$SCRIPT_DIR/.derivedData-blitztextmac-build"
+
+# Load gitignored local signing config (personal values stay off the public repo),
+# then let environment variables take precedence over it.
+if [ -f "$SCRIPT_DIR/signing.local.sh" ]; then
+    # shellcheck source=/dev/null
+    source "$SCRIPT_DIR/signing.local.sh"
+fi
+SIGN_IDENTITY="${BLITZTEXT_SIGN_IDENTITY:-$SIGN_IDENTITY}"
+NOTARY_PROFILE="${BLITZTEXT_NOTARY_PROFILE:-$NOTARY_PROFILE}"
+NOTARY_APPLE_ID="${BLITZTEXT_NOTARY_APPLE_ID:-$NOTARY_APPLE_ID}"
+NOTARY_TEAM_ID="${BLITZTEXT_NOTARY_TEAM_ID:-$NOTARY_TEAM_ID}"
+
 cd "$PROJECT_DIR"
 
 ensure_xcodebuild_available

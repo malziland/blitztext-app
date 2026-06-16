@@ -15,6 +15,7 @@ This fork tracks local macOS usability fixes for running Blitztext without a hos
 
 ### Changed
 
+- Kept personal signing values (Developer ID identity, notary profile, Apple ID, Team ID) out of the public repo: `build.sh` now reads them from a gitignored `signing.local.sh` (template: `signing.local.sh.example`) or environment variables, and stops with a clear message if `--developer-id`/`--notarize` is used without them.
 - Signing always uses the existing entitlements file, so microphone and network entitlements are never dropped. Dropped `codesign --deep` in favor of an inside-out approach (Apple advises against `--deep` for distribution).
 - On `--install`, the running Blitztext instance is now quit before the app in `/Applications` is replaced, and the installed copy reuses the already-signed (and, if notarized, stapled) bundle instead of being re-signed.
 - The build summary now reports the signing mode, and ad-hoc builds print a hint to use `--developer-id` for stable permissions.

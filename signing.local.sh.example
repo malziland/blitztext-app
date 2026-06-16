@@ -1,0 +1,21 @@
+# Local signing configuration for build.sh (macOS code signing + notarization).
+#
+# Copy this file to `signing.local.sh` (which is gitignored) and fill in your
+# OWN values. These identifiers are personal to each signer and must never be
+# committed to a public repository.
+#
+#   cp signing.local.sh.example signing.local.sh
+#
+# build.sh sources signing.local.sh automatically if it exists. Environment
+# variables (BLITZTEXT_SIGN_IDENTITY, ...) take precedence over this file.
+
+# Your Developer ID Application identity, exactly as printed by:
+#   security find-identity -v -p codesigning
+SIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)"
+
+# Your notarytool keychain profile, created once via `xcrun notarytool store-credentials`.
+NOTARY_PROFILE="your-notary-profile"
+
+# Apple ID + Team ID — only used in the help text shown if the notary profile is missing.
+NOTARY_APPLE_ID="you@example.com"
+NOTARY_TEAM_ID="TEAMID"

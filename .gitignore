@@ -22,6 +22,9 @@ models/
 # Signing / notarization artifacts
 Blitztext-notarization.zip
 *.zip
+
+# Local (personal) signing config — never commit; use signing.local.sh.example as template
+signing.local.sh
 *.mlmodel
 *.mlmodelc/
 *.mlpackage/
