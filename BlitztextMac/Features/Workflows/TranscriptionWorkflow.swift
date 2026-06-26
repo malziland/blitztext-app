@@ -26,8 +26,10 @@ final class TranscriptionWorkflow: Workflow {
     private let backend: TranscriptionBackend
     private let localModelName: String
     private let audioInputDeviceID: String
+    private let formatTranscription: Bool
     private let remoteTranscribe: (URL, [String], String) async throws -> String
     private let localTranscribe: (URL, String, String) async throws -> String
+    private let formatRemote: (String) async throws -> String
     private var transcriptionTask: Task<Void, Never>?
 
     init(
@@ -37,13 +39,15 @@ final class TranscriptionWorkflow: Workflow {
         backend: TranscriptionBackend = .remote,
         localModelName: String = LocalTranscriptionService.recommendedFastModelName,
         audioInputDeviceID: String = AudioInputDeviceService.systemDefaultDeviceID,
+        formatTranscription: Bool = false,
         recorder: (any AudioRecording)? = nil,
         remoteTranscribe: @escaping (URL, [String], String) async throws -> String = {
             try await TranscriptionService.transcribe(audioURL: $0, customTerms: $1, language: $2)
         },
         localTranscribe: @escaping (URL, String, String) async throws -> String = {
             try await LocalTranscriptionService.shared.transcribe(audioURL: $0, language: $1, modelName: $2)
-        }
+        },
+        formatRemote: ((String) async throws -> String)? = nil
     ) {
         self.type = type
         self.customTerms = customTerms
@@ -51,9 +55,13 @@ final class TranscriptionWorkflow: Workflow {
         self.backend = backend
         self.localModelName = localModelName
         self.audioInputDeviceID = audioInputDeviceID
+        self.formatTranscription = formatTranscription
         self.recorder = recorder ?? AudioRecorder()
         self.remoteTranscribe = remoteTranscribe
         self.localTranscribe = localTranscribe
+        self.formatRemote = formatRemote ?? { [customTerms] in
+            try await LLMService.format(text: $0, customTerms: customTerms)
+        }
     }
 
     func start() {
@@ -153,14 +161,48 @@ final class TranscriptionWorkflow: Workflow {
                     transcriptionLogger.info(
                         "Transcription ready in \(elapsedMilliseconds(since: stopTime, until: responseReceivedAt)) ms (request \(elapsedMilliseconds(since: requestStart, until: responseReceivedAt)) ms)"
                     )
-                    phase = .done(cleaned)
-                    onOutput?(cleaned)
+                    let finalText = await formattedOutput(cleaned)
+                    try Task.checkCancellation()
+                    phase = .done(finalText)
+                    onOutput?(finalText)
                 }
             } catch {
                 transcriptionLogger.error(
                     "Transcription failed after \(elapsedMilliseconds(since: stopTime)) ms: \(error.localizedDescription, privacy: .private)"
                 )
                 phase = .error(error.localizedDescription)
+            }
+        }
+    }
+
+    /// Optionally improves the transcript's layout (capitalization, punctuation,
+    /// paragraphs). Online it uses the LLM formatting pass; in secure local mode
+    /// it stays on-device. If the online pass fails, it degrades to the offline
+    /// formatter so the user never loses the dictation to a formatting error.
+    private func formattedOutput(_ cleaned: String) async -> String {
+        guard formatTranscription else { return cleaned }
+
+        switch backend {
+        case .local:
+            return TranscriptFormatter.format(cleaned)
+        case .remote:
+            // Trivial utterances don't need a paid round-trip; the offline
+            // formatter (capitalization) is enough.
+            if TranscriptFormatter.isTrivialForOnlineFormatting(cleaned) {
+                return TranscriptFormatter.format(cleaned)
+            }
+
+            phase = .running("Wird formatiert ...")
+            do {
+                let formatted = TranscriptionQualityService.cleanedTranscript(try await formatRemote(cleaned))
+                guard TranscriptFormatter.isPlausibleReformatting(original: cleaned, formatted: formatted) else {
+                    transcriptionLogger.error("Formatting pass returned implausible output, using offline fallback")
+                    return TranscriptFormatter.format(cleaned)
+                }
+                return formatted
+            } catch {
+                transcriptionLogger.error("Formatting pass failed, using offline fallback: \(error.localizedDescription, privacy: .private)")
+                return TranscriptFormatter.format(cleaned)
             }
         }
     }

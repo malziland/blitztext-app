@@ -117,6 +117,133 @@ final class WorkflowOrchestrationTests: XCTestCase {
         XCTAssertEqual(workflow.phase, .error("Mikrofon nicht verfuegbar."))
     }
 
+    func testRemoteFormattingPassIsAppliedWhenEnabled() async {
+        let recorder = FakeRecorder()
+        recorder.durationOnStop = 2.0
+        var outputs: [String] = []
+        let workflow = TranscriptionWorkflow(
+            backend: .remote,
+            formatTranscription: true,
+            recorder: recorder,
+            remoteTranscribe: { _, _, _ in "hallo welt das ist ein test" },
+            formatRemote: { input in "formatiert: \(input)" }
+        )
+        workflow.onOutput = { outputs.append($0) }
+
+        workflow.start()
+        workflow.stop()
+        await waitForTerminalPhase(workflow)
+
+        XCTAssertEqual(outputs, ["formatiert: hallo welt das ist ein test"])
+    }
+
+    func testRemoteFormattingFallsBackToOfflineWhenPassFails() async {
+        let recorder = FakeRecorder()
+        recorder.durationOnStop = 2.0
+        var outputs: [String] = []
+        let workflow = TranscriptionWorkflow(
+            backend: .remote,
+            formatTranscription: true,
+            recorder: recorder,
+            remoteTranscribe: { _, _, _ in "hallo welt neue zeile zweite zeile" },
+            formatRemote: { _ in throw LLMError.noContent }
+        )
+        workflow.onOutput = { outputs.append($0) }
+
+        workflow.start()
+        workflow.stop()
+        await waitForTerminalPhase(workflow)
+
+        // Offline fallback capitalizes and turns "neue zeile" into a line break.
+        XCTAssertEqual(outputs, ["Hallo welt\nZweite zeile"])
+    }
+
+    func testLocalFormattingUsesOfflineFormatterWithoutNetwork() async {
+        let recorder = FakeRecorder()
+        recorder.durationOnStop = 2.0
+        var outputs: [String] = []
+        var formatRemoteCalled = false
+        let workflow = TranscriptionWorkflow(
+            type: .localTranscription,
+            backend: .local,
+            formatTranscription: true,
+            recorder: recorder,
+            localTranscribe: { _, _, _ in "erste zeile neuer absatz zweite zeile" },
+            formatRemote: { input in formatRemoteCalled = true; return input }
+        )
+        workflow.onOutput = { outputs.append($0) }
+
+        workflow.start()
+        workflow.stop()
+        await waitForTerminalPhase(workflow)
+
+        XCTAssertFalse(formatRemoteCalled, "local mode must not call the online formatting pass")
+        XCTAssertEqual(outputs, ["Erste zeile\n\nZweite zeile"])
+    }
+
+    func testShortTranscriptSkipsOnlineFormatting() async {
+        let recorder = FakeRecorder()
+        recorder.durationOnStop = 2.0
+        var outputs: [String] = []
+        var formatRemoteCalled = false
+        let workflow = TranscriptionWorkflow(
+            backend: .remote,
+            formatTranscription: true,
+            recorder: recorder,
+            remoteTranscribe: { _, _, _ in "ja danke" },
+            formatRemote: { input in formatRemoteCalled = true; return input }
+        )
+        workflow.onOutput = { outputs.append($0) }
+
+        workflow.start()
+        workflow.stop()
+        await waitForTerminalPhase(workflow)
+
+        XCTAssertFalse(formatRemoteCalled, "trivial utterances must not trigger a paid format call")
+        XCTAssertEqual(outputs, ["Ja danke"])
+    }
+
+    func testImplausibleFormattingFallsBackToOffline() async {
+        let recorder = FakeRecorder()
+        recorder.durationOnStop = 2.0
+        var outputs: [String] = []
+        let workflow = TranscriptionWorkflow(
+            backend: .remote,
+            formatTranscription: true,
+            recorder: recorder,
+            remoteTranscribe: { _, _, _ in "hallo welt das ist ein test" },
+            formatRemote: { _ in String(repeating: "zusatz ", count: 50) }
+        )
+        workflow.onOutput = { outputs.append($0) }
+
+        workflow.start()
+        workflow.stop()
+        await waitForTerminalPhase(workflow)
+
+        // The bloated response is rejected; the offline formatter is used instead.
+        XCTAssertEqual(outputs, ["Hallo welt das ist ein test"])
+    }
+
+    func testFormattingDisabledKeepsRawTranscript() async {
+        let recorder = FakeRecorder()
+        recorder.durationOnStop = 2.0
+        var outputs: [String] = []
+        let workflow = TranscriptionWorkflow(
+            backend: .remote,
+            formatTranscription: false,
+            recorder: recorder,
+            remoteTranscribe: { _, _, _ in "hallo welt neue zeile" },
+            formatRemote: { _ in "should not be used" }
+        )
+        workflow.onOutput = { outputs.append($0) }
+
+        workflow.start()
+        workflow.stop()
+        await waitForTerminalPhase(workflow)
+
+        XCTAssertEqual(outputs, ["hallo welt neue zeile"])
+    }
+
     func testTextImprovementAppliesRewrite() async {
         let recorder = FakeRecorder()
         recorder.durationOnStop = 2.0

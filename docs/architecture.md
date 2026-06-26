@@ -22,7 +22,8 @@ Everything here is platform-agnostic and unit-tested without launching the app
   `KeychainService` — request building and response parsing are pure functions;
   the network transport is injectable so the full flow is testable without a
   real network.
-- **Pure logic:** `TranscriptionQualityService`, `WorkflowLogic`, `HotkeyCombo`,
+- **Pure logic:** `TranscriptionQualityService`, `TranscriptFormatter` (offline
+  capitalization/punctuation/paragraph cleanup), `WorkflowLogic`, `HotkeyCombo`,
   `WhisperModelCatalog`, `AudioMetering`, `KeyMasking`, `WorkflowAvailability`,
   `PasteRetry`.
 - **Boundaries:** `AudioRecording` protocol (the recording interface the

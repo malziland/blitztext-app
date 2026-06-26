@@ -39,4 +39,19 @@ final class LLMServicePromptTests: XCTestCase {
         XCTAssertTrue(prompt.contains("Begriff"))
     }
 
+    func testFormattingPromptForbidsRewritingAndAppendsTerms() {
+        let prompt = LLMService.buildFormattingPrompt(customTerms: ["Blitztext", "malziland"])
+
+        XCTAssertTrue(prompt.contains("Aendere NICHT den Wortlaut"))
+        XCTAssertTrue(prompt.contains("KEINE Woerter hinzu"))
+        XCTAssertTrue(prompt.contains("Blitztext"))
+        XCTAssertTrue(prompt.contains("malziland"))
+    }
+
+    func testFormattingPromptWithoutTermsHasNoTermsLine() {
+        let prompt = LLMService.buildFormattingPrompt(customTerms: [])
+
+        XCTAssertFalse(prompt.contains("Eigennamen und Fachbegriffe exakt"))
+    }
+
 }
