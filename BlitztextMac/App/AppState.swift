@@ -150,7 +150,8 @@ final class AppState {
                 language: transcriptionSettings.language,
                 backend: appSettings.secureLocalModeEnabled ? .local : .remote,
                 localModelName: selectedLocalModelName,
-                audioInputDeviceID: appSettings.selectedAudioInputDeviceID
+                audioInputDeviceID: appSettings.selectedAudioInputDeviceID,
+                formatTranscription: appSettings.formatTranscription
             )
             configureWorkflowHandlers(workflow)
             activeWorkflow = workflow
@@ -163,7 +164,8 @@ final class AppState {
                 language: transcriptionSettings.language,
                 backend: .local,
                 localModelName: selectedLocalModelName,
-                audioInputDeviceID: appSettings.selectedAudioInputDeviceID
+                audioInputDeviceID: appSettings.selectedAudioInputDeviceID,
+                formatTranscription: appSettings.formatTranscription
             )
             configureWorkflowHandlers(workflow)
             activeWorkflow = workflow

@@ -4,6 +4,43 @@ All notable changes to this fork are documented here.
 
 This fork tracks local macOS usability fixes for running Blitztext without a hosted backend. The original upstream project remains the source of the baseline app.
 
+## 2026-06-26
+
+### Added
+
+- **Automatic formatting of transcripts** (Groß-/Kleinschreibung, Satzzeichen, Absätze),
+  controlled by a new "Automatisch formatieren" toggle in the "Anpassen" settings tab
+  (`AppSettings.formatTranscription`, default on). It runs after transcription on the plain
+  **Blitztext** and **Blitztext Lokal** workflows; **Blitztext+** is unaffected (it already
+  rewrites).
+  - **Online** (remote Whisper): a formatting-only pass via `gpt-4o-mini`
+    (`LLMService.format`, temperature 0) that fixes capitalization, punctuation and
+    paragraph/line breaks **without changing the wording**. It also turns spoken dictation
+    marks ("Punkt", "Komma", "neue Zeile", "neuer Absatz", …) into real punctuation/breaks.
+  - **Offline** (secure local mode): a deterministic, on-device formatter
+    (`TranscriptFormatter` in `BlitztextCore`) — sentence-start capitalization, whitespace
+    normalization, and spoken structural commands ("neue Zeile", "neuer Absatz",
+    "Fragezeichen", "Ausrufezeichen", "Doppelpunkt"). It never sends anything to OpenAI, so
+    the secure-local privacy guarantee is preserved. "Punkt"/"Komma" are intentionally not
+    auto-converted offline (too many false positives); they are handled in context by the
+    online pass. German noun capitalization is left to the online pass.
+  - If the online pass fails, the workflow degrades to the offline formatter so a formatting
+    error never loses the dictation.
+
+### Changed
+
+- **Better raw transcription, no extra request:** the Whisper `prompt` field is now always
+  seeded with a correctly written German sentence (capitalization + punctuation) when the
+  language is German, so the transcript already comes back better formatted. Custom terms are
+  appended as before (`TranscriptionService.transcriptionPrompt`).
+- **Plausibility guard on the online formatting pass:** if the model returns something that is
+  not a reformat (a rewrite, an appended explanation, a refusal, runaway repetition), the
+  result is rejected and the offline formatter is used instead
+  (`TranscriptFormatter.isPlausibleReformatting`, an alphanumeric-length check).
+- **Skip the paid format call for trivial utterances** (≤ 3 words like "ja danke"): they use
+  the offline formatter directly, saving a round-trip and cost
+  (`TranscriptFormatter.isTrivialForOnlineFormatting`).
+
 ## 2026-06-16
 
 A large round of work on this fork: the logic was split into a tested, platform-agnostic

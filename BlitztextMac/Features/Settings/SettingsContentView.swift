@@ -548,6 +548,20 @@ struct CustomizeSettingsView: View {
                 }
             }
 
+            // MARK: Formatierung
+            VStack(alignment: .leading, spacing: 8) {
+                SectionLabel(text: "Formatierung")
+
+                Toggle("Automatisch formatieren", isOn: $appState.appSettings.formatTranscription)
+                    .toggleStyle(.switch)
+                    .font(.system(size: 11.5))
+
+                Text("Setzt Gro\u{00DF}-/Kleinschreibung, Satzzeichen und Abs\u{00E4}tze. Online \u{00FC}ber OpenAI; im sicheren lokalen Modus rein auf dem Ger\u{00E4}t (Diktierbefehle wie \u{201E}neue Zeile\u{201C} oder \u{201E}neuer Absatz\u{201C}).")
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
             // MARK: Blitztext+
             VStack(alignment: .leading, spacing: 10) {
                 SectionLabel(text: "Blitztext+")

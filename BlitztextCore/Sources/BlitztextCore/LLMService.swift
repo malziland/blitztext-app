@@ -85,6 +85,22 @@ public enum LLMService {
         )
     }
 
+    /// Formats a raw transcript without rewriting it: only capitalization,
+    /// punctuation and sensible paragraph/line breaks are added. Temperature 0
+    /// keeps it deterministic and prevents the model from "improving" wording.
+    public static func format(
+        text: String,
+        customTerms: [String] = [],
+        model: RewriteModel = .fastEdit
+    ) async throws -> String {
+        try await complete(
+            text: text,
+            systemPrompt: buildFormattingPrompt(customTerms: customTerms),
+            model: model,
+            temperature: 0
+        )
+    }
+
     static func complete(
         text: String,
         systemPrompt: String,
@@ -187,6 +203,25 @@ public enum LLMService {
 
         if !settings.context.isEmpty {
             prompt += "\n\nKontext: \(settings.context)"
+        }
+
+        return prompt
+    }
+
+    /// System prompt for the formatting-only pass. Strictly forbids rewriting so
+    /// the user's exact wording is preserved; only the layout is cleaned up.
+    public static func buildFormattingPrompt(customTerms: [String]) -> String {
+        var prompt = """
+        Du formatierst ein diktiertes Transkript. Aendere NICHT den Wortlaut.
+        - Setze nur Gross- und Kleinschreibung, Satzzeichen und sinnvolle Absaetze sowie Zeilenumbrueche.
+        - Fuege KEINE Woerter hinzu, entferne keine und formuliere nichts um.
+        - Wandle gesprochene Diktatzeichen wie "Punkt", "Komma", "Fragezeichen", "neue Zeile" oder "neuer Absatz" in die entsprechenden Satzzeichen bzw. Umbrueche um.
+        - Behalte die Sprache des Textes bei.
+        - Gib NUR den formatierten Text zurueck, ohne Erklaerungen oder Anfuehrungszeichen.
+        """
+
+        if !customTerms.isEmpty {
+            prompt += "\n\nDiese Eigennamen und Fachbegriffe exakt so schreiben: \(customTerms.joined(separator: ", "))"
         }
 
         return prompt

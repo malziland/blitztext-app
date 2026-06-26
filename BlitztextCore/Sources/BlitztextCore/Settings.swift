@@ -83,6 +83,10 @@ public struct AppSettings: Codable {
     public var selectedLocalTranscriptionModelName: String = BlitztextDefaults.recommendedFastWhisperModelName
     public var hasAutoSelectedFastLocalModel: Bool = false
     public var selectedAudioInputDeviceID: String = BlitztextDefaults.systemDefaultAudioDeviceID
+    /// Apply a formatting pass (capitalization, punctuation, paragraphs) after
+    /// transcription. Online (remote) it uses the LLM formatting pass; in secure
+    /// local mode it stays on-device via `TranscriptFormatter`.
+    public var formatTranscription: Bool = true
 
     public init(
         hotkeyMode: HotkeyMode = .toggle,
@@ -90,7 +94,8 @@ public struct AppSettings: Codable {
         secureLocalModeEnabled: Bool = false,
         selectedLocalTranscriptionModelName: String = BlitztextDefaults.recommendedFastWhisperModelName,
         hasAutoSelectedFastLocalModel: Bool = false,
-        selectedAudioInputDeviceID: String = BlitztextDefaults.systemDefaultAudioDeviceID
+        selectedAudioInputDeviceID: String = BlitztextDefaults.systemDefaultAudioDeviceID,
+        formatTranscription: Bool = true
     ) {
         self.hotkeyMode = hotkeyMode
         self.hasSeenOnboarding = hasSeenOnboarding
@@ -98,6 +103,7 @@ public struct AppSettings: Codable {
         self.selectedLocalTranscriptionModelName = selectedLocalTranscriptionModelName
         self.hasAutoSelectedFastLocalModel = hasAutoSelectedFastLocalModel
         self.selectedAudioInputDeviceID = selectedAudioInputDeviceID
+        self.formatTranscription = formatTranscription
     }
 
     enum CodingKeys: String, CodingKey {
@@ -107,6 +113,7 @@ public struct AppSettings: Codable {
         case selectedLocalTranscriptionModelName
         case hasAutoSelectedFastLocalModel
         case selectedAudioInputDeviceID
+        case formatTranscription
     }
 
     public init(from decoder: Decoder) throws {
@@ -126,5 +133,6 @@ public struct AppSettings: Codable {
             String.self,
             forKey: .selectedAudioInputDeviceID
         ) ?? BlitztextDefaults.systemDefaultAudioDeviceID
+        formatTranscription = try container.decodeIfPresent(Bool.self, forKey: .formatTranscription) ?? true
     }
 }

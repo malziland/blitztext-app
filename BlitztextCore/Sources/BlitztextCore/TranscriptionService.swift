@@ -67,8 +67,7 @@ public enum TranscriptionService {
         body.append("text")
         body.append("\r\n")
 
-        if !customTerms.isEmpty {
-            let prompt = "Eigennamen und Begriffe: \(customTerms.joined(separator: ", "))"
+        if let prompt = transcriptionPrompt(customTerms: customTerms, language: language) {
             body.append("--\(boundary)\r\n")
             body.append("Content-Disposition: form-data; name=\"prompt\"\r\n\r\n")
             body.append(prompt)
@@ -84,6 +83,29 @@ public enum TranscriptionService {
 
         body.append("--\(boundary)--\r\n")
         return body
+    }
+
+    /// Builds the optional Whisper `prompt` field. The prompt biases Whisper's
+    /// output *style* (capitalization, punctuation) and vocabulary; it is not
+    /// transcribed into the result. For German we seed a correctly written
+    /// sentence so the raw transcript already comes back better formatted (free,
+    /// no extra request). Custom terms are appended so proper nouns are spelled
+    /// right. Returns nil when there is nothing useful to send.
+    static func transcriptionPrompt(customTerms: [String], language: String?) -> String? {
+        let normalizedLanguage = language?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+        let isGerman = normalizedLanguage?.hasPrefix("de") ?? false
+
+        var parts: [String] = []
+        if isGerman {
+            parts.append("Transkribiere in korrektem Deutsch mit Gross- und Kleinschreibung sowie Satzzeichen.")
+        }
+        if !customTerms.isEmpty {
+            parts.append("Eigennamen und Begriffe: \(customTerms.joined(separator: ", "))")
+        }
+
+        return parts.isEmpty ? nil : parts.joined(separator: " ")
     }
 
     /// Injectable HTTP transport so the request/response flow can be unit-tested.

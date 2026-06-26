@@ -9,7 +9,8 @@ final class AppSettingsCodableTests: XCTestCase {
             secureLocalModeEnabled: true,
             selectedLocalTranscriptionModelName: "custom-model",
             hasAutoSelectedFastLocalModel: true,
-            selectedAudioInputDeviceID: "device-42"
+            selectedAudioInputDeviceID: "device-42",
+            formatTranscription: false
         )
 
         let data = try JSONEncoder().encode(original)
@@ -21,6 +22,22 @@ final class AppSettingsCodableTests: XCTestCase {
         XCTAssertEqual(decoded.selectedLocalTranscriptionModelName, "custom-model")
         XCTAssertTrue(decoded.hasAutoSelectedFastLocalModel)
         XCTAssertEqual(decoded.selectedAudioInputDeviceID, "device-42")
+        XCTAssertFalse(decoded.formatTranscription)
+    }
+
+    func testFormatTranscriptionDefaultsToTrueWhenMissing() throws {
+        // Settings files written before the field existed must keep working and
+        // opt into formatting by default.
+        let json = Data("""
+        {
+          "hasSeenOnboarding": true,
+          "selectedAudioInputDeviceID": "device-42"
+        }
+        """.utf8)
+
+        let decoded = try JSONDecoder().decode(AppSettings.self, from: json)
+
+        XCTAssertTrue(decoded.formatTranscription)
     }
 
     func testPartialJSONFallsBackToDefaults() throws {
@@ -48,5 +65,6 @@ final class AppSettingsCodableTests: XCTestCase {
         XCTAssertEqual(settings.selectedLocalTranscriptionModelName, BlitztextDefaults.recommendedFastWhisperModelName)
         XCTAssertEqual(settings.selectedAudioInputDeviceID, BlitztextDefaults.systemDefaultAudioDeviceID)
         XCTAssertEqual(settings.hotkeyMode, .toggle)
+        XCTAssertTrue(settings.formatTranscription)
     }
 }

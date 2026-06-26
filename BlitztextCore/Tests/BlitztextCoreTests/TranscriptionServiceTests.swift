@@ -51,4 +51,26 @@ final class TranscriptionServiceTests: XCTestCase {
     func testRemoteModelIsWhisper1() {
         XCTAssertEqual(TranscriptionService.remoteModel, "whisper-1")
     }
+
+    func testTranscriptionPromptSeedsGermanStyle() {
+        let prompt = TranscriptionService.transcriptionPrompt(customTerms: [], language: "de")
+        XCTAssertEqual(prompt, "Transkribiere in korrektem Deutsch mit Gross- und Kleinschreibung sowie Satzzeichen.")
+    }
+
+    func testTranscriptionPromptCombinesGermanStyleAndTerms() {
+        let prompt = TranscriptionService.transcriptionPrompt(customTerms: ["malziland"], language: " DE ")
+        XCTAssertNotNil(prompt)
+        XCTAssertTrue(prompt!.contains("korrektem Deutsch"))
+        XCTAssertTrue(prompt!.contains("Eigennamen und Begriffe: malziland"))
+    }
+
+    func testTranscriptionPromptWithoutGermanOnlyHasTerms() {
+        let prompt = TranscriptionService.transcriptionPrompt(customTerms: ["malziland"], language: "en")
+        XCTAssertEqual(prompt, "Eigennamen und Begriffe: malziland")
+    }
+
+    func testTranscriptionPromptIsNilWhenNothingToSend() {
+        XCTAssertNil(TranscriptionService.transcriptionPrompt(customTerms: [], language: nil))
+        XCTAssertNil(TranscriptionService.transcriptionPrompt(customTerms: [], language: "en"))
+    }
 }
